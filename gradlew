@@ -118,6 +118,49 @@ esac
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
+if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ] ; then
+    java_version_output=$("$JAVA_HOME/bin/java" -version 2>&1)
+    java_version=${java_version_output#*\"}
+    java_version=${java_version%%\"*}
+else
+    java_version=
+fi
+
+case $java_version in
+    '' | 1.[0-9]*)
+        for candidate in \
+            /usr/lib/jvm/java-17-openjdk-amd64 \
+            /usr/lib/jvm/java-17-openjdk-* \
+            /usr/lib/jvm/java-1.17.0-openjdk-amd64 \
+            /usr/lib/jvm/java-1.17.0-openjdk-* \
+            /usr/lib/jvm/openjdk-17
+        do
+            if [ -x "$candidate/bin/javac" ] ; then
+                JAVA_HOME=$candidate
+                export JAVA_HOME
+                break
+            fi
+        done
+        ;;
+esac
+
+if [ -n "$JAVA_HOME" ] && [ ! -x "$JAVA_HOME/bin/javac" ] ; then
+    for candidate in \
+        /usr/lib/jvm/java-17-openjdk-amd64 \
+        /usr/lib/jvm/java-17-openjdk-* \
+        /usr/lib/jvm/java-1.17.0-openjdk-amd64 \
+        /usr/lib/jvm/java-1.17.0-openjdk-* \
+        /usr/lib/jvm/openjdk-17
+    do
+        if [ -x "$candidate/bin/javac" ] ; then
+            JAVA_HOME=$candidate
+            export JAVA_HOME
+            break
+        fi
+    done
+fi
+
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
