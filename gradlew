@@ -118,46 +118,83 @@ esac
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
-if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ] ; then
-    java_version_output=$("$JAVA_HOME/bin/java" -version 2>&1)
+java_major_version () {
+    java_version_output=$("$1" -version 2>&1)
     java_version=${java_version_output#*\"}
     java_version=${java_version%%\"*}
-else
-    java_version=
-fi
+    case $java_version in
+        1.*)
+            java_version=${java_version#1.}
+            printf '%s\n' "${java_version%%.*}"
+            ;;
+        *)
+            printf '%s\n' "${java_version%%.*}"
+            ;;
+    esac
+}
 
-case $java_version in
-    '' | 1.[0-9]*)
-        for candidate in \
-            /usr/lib/jvm/java-17-openjdk-amd64 \
-            /usr/lib/jvm/java-17-openjdk-* \
-            /usr/lib/jvm/java-1.17.0-openjdk-amd64 \
-            /usr/lib/jvm/java-1.17.0-openjdk-* \
-            /usr/lib/jvm/openjdk-17
-        do
-            if [ -x "$candidate/bin/javac" ] ; then
-                JAVA_HOME=$candidate
-                export JAVA_HOME
-                break
-            fi
-        done
-        ;;
-esac
+java_home_major_version () {
+    if [ -x "$1/bin/java" ] ; then
+        java_major_version "$1/bin/java"
+    fi
+}
 
-if [ -n "$JAVA_HOME" ] && [ ! -x "$JAVA_HOME/bin/javac" ] ; then
+resolve_current_java_home () {
+    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ] ; then
+        printf '%s\n' "$JAVA_HOME"
+        return
+    fi
+
+    if command -v java >/dev/null 2>&1 ; then
+        java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java\.home = //p' | sed -n '1p'
+    fi
+}
+
+select_fallback_java_home () {
+    if [ -n "$JAVA17_HOME" ] ; then
+        printf '%s\n' "$JAVA17_HOME"
+    fi
+
+    if [ -n "$JDK17_HOME" ] ; then
+        printf '%s\n' "$JDK17_HOME"
+    fi
+
     for candidate in \
-        /usr/lib/jvm/java-17-openjdk-amd64 \
-        /usr/lib/jvm/java-17-openjdk-* \
-        /usr/lib/jvm/java-1.17.0-openjdk-amd64 \
-        /usr/lib/jvm/java-1.17.0-openjdk-* \
-        /usr/lib/jvm/openjdk-17
+        "$HOME/android-studio/jbr" \
+        "$HOME/android-studio/jbr/Contents/Home" \
+        "$HOME/.local/share/JetBrains/Toolbox/apps/AndroidStudio/ch-0"/*/jbr \
+        "$HOME/.local/share/JetBrains/Toolbox/apps/AndroidStudio/ch-0"/*/jbr/Contents/Home \
+        "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
     do
-        if [ -x "$candidate/bin/javac" ] ; then
+        printf '%s\n' "$candidate"
+    done
+
+    if [ -x /usr/libexec/java_home ] ; then
+        /usr/libexec/java_home -v 17 2>/dev/null || true
+    fi
+
+    for candidate in /usr/lib/jvm/*17* /usr/lib/jvm/*21* ; do
+        printf '%s\n' "$candidate"
+    done
+}
+
+current_java_home=$(resolve_current_java_home)
+current_java_major=$(java_home_major_version "$current_java_home")
+
+if [ ! -x "$current_java_home/bin/javac" ] || [ -z "$current_java_major" ] || [ "$current_java_major" -lt 17 ] 2>/dev/null ; then
+    old_ifs=$IFS
+    IFS=$(printf '\n_')
+    IFS=${IFS%_}
+    for candidate in $(select_fallback_java_home)
+    do
+        candidate_major=$(java_home_major_version "$candidate")
+        if [ -x "$candidate/bin/javac" ] && [ -n "$candidate_major" ] && [ "$candidate_major" -ge 17 ] 2>/dev/null ; then
             JAVA_HOME=$candidate
             export JAVA_HOME
             break
         fi
     done
+    IFS=$old_ifs
 fi
 
 
