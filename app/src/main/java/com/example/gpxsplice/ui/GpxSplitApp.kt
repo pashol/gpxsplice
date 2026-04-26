@@ -3,7 +3,6 @@ package com.example.gpxsplice.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +44,11 @@ fun GpxSplitApp(
     var results by remember { mutableStateOf<List<SplitResult>>(emptyList()) }
     var localError by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(document) {
+        results = emptyList()
+        localError = null
+    }
+
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -60,7 +65,7 @@ fun GpxSplitApp(
                 value = input,
                 onValueChange = { input = it },
                 label = { Text(inputLabel(mode)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardTypeFor(mode)),
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
@@ -71,6 +76,7 @@ fun GpxSplitApp(
                         localError = if (it.size > 100) "Warning: this creates more than 100 files." else null
                         results = it
                     }.onFailure {
+                        results = emptyList()
                         localError = it.message ?: "Could not split GPX file"
                     }
                 },
@@ -113,6 +119,13 @@ private fun inputLabel(mode: SplitMode): String = when (mode) {
     SplitMode.DISTANCE -> "Distance in kilometers"
     SplitMode.MAX_POINTS -> "Maximum points per file"
     SplitMode.EQUAL_STAGES -> "Number of stages"
+}
+
+private fun keyboardTypeFor(mode: SplitMode): KeyboardType = when (mode) {
+    SplitMode.DISTANCE -> KeyboardType.Decimal
+    SplitMode.MAX_POINTS,
+    SplitMode.EQUAL_STAGES,
+    -> KeyboardType.Number
 }
 
 private fun optionsFor(mode: SplitMode, input: String): SplitOptions = when (mode) {
