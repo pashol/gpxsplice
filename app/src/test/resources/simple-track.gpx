@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="gpxsplice" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Simple Track</name></metadata>
+  <trk>
+    <name>Morning Ride</name>
+    <trkseg>
+      <trkpt lat="52.0000" lon="5.0000"><ele>10.0</ele><time>2026-04-26T08:00:00Z</time></trkpt>
+      <trkpt lat="52.0000" lon="5.0100"><ele>12.0</ele><time>2026-04-26T08:05:00Z</time></trkpt>
+      <trkpt lat="52.0000" lon="5.0200" />
+    </trkseg>
+  </trk>
+</gpx>
