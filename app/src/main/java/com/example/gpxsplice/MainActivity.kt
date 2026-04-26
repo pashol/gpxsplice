@@ -25,6 +25,7 @@ import com.example.gpxsplice.io.writeExportFile
 import com.example.gpxsplice.ui.GpxSplitApp
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,7 +40,7 @@ class MainActivity : ComponentActivity() {
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                     if (uri == null) return@rememberLauncherForActivityResult
                     lifecycleScope.launch {
-                        runCatching {
+                        runCatchingPreservingCancellation {
                             withContext(Dispatchers.IO) {
                                 contentResolver.openInputStream(uri).use { input ->
                                     requireNotNull(input) { "Could not open selected file" }
@@ -60,7 +61,7 @@ class MainActivity : ComponentActivity() {
                     onPickFile = { picker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*")) },
                     onShareFiles = { results ->
                         lifecycleScope.launch {
-                            runCatching {
+                            runCatchingPreservingCancellation {
                                 shareFiles(ExportBuilder.gpxFiles(results))
                             }.onSuccess {
                                 errorMessage = null
@@ -71,7 +72,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onShareZip = { results ->
                         lifecycleScope.launch {
-                            runCatching {
+                            runCatchingPreservingCancellation {
                                 shareZip(results)
                             }.onSuccess {
                                 errorMessage = null
@@ -132,10 +133,22 @@ class MainActivity : ComponentActivity() {
 
     private fun cleanupOldExportDirs(exportsRoot: File, activeDir: File) {
         exportsRoot.listFiles()
-            ?.filter { it.isDirectory && it != activeDir }
-            ?.sortedByDescending { it.lastModified() }
-            ?.drop(MAX_EXPORT_DIRECTORIES - 1)
+            ?.filter { directory ->
+                directory.isDirectory &&
+                    directory != activeDir &&
+                    directory.lastModified() < System.currentTimeMillis() - EXPORT_DIR_MAX_AGE_MS
+            }
             ?.forEach { it.deleteRecursively() }
+    }
+
+    private inline fun <T> runCatchingPreservingCancellation(block: () -> T): Result<T> {
+        return try {
+            Result.success(block())
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            Result.failure(error)
+        }
     }
 
     private fun List<Uri>.toClipData(label: String): ClipData {
@@ -148,6 +161,6 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val MAX_EXPORT_DIRECTORIES = 8
+        private const val EXPORT_DIR_MAX_AGE_MS = 24 * 60 * 60 * 1000L
     }
 }
