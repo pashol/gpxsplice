@@ -60,12 +60,24 @@ class MainActivity : ComponentActivity() {
                     onPickFile = { picker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*")) },
                     onShareFiles = { results ->
                         lifecycleScope.launch {
-                            shareFiles(ExportBuilder.gpxFiles(results))
+                            runCatching {
+                                shareFiles(ExportBuilder.gpxFiles(results))
+                            }.onSuccess {
+                                errorMessage = null
+                            }.onFailure {
+                                errorMessage = "Could not share GPX files"
+                            }
                         }
                     },
                     onShareZip = { results ->
                         lifecycleScope.launch {
-                            shareZip(results)
+                            runCatching {
+                                shareZip(results)
+                            }.onSuccess {
+                                errorMessage = null
+                            }.onFailure {
+                                errorMessage = "Could not share ZIP"
+                            }
                         }
                     },
                     errorMessage = errorMessage,
@@ -114,7 +126,16 @@ class MainActivity : ComponentActivity() {
         exportsRoot.mkdirs()
         return File(exportsRoot, UUID.randomUUID().toString()).apply {
             mkdirs()
+            cleanupOldExportDirs(exportsRoot, this)
         }
+    }
+
+    private fun cleanupOldExportDirs(exportsRoot: File, activeDir: File) {
+        exportsRoot.listFiles()
+            ?.filter { it.isDirectory && it != activeDir }
+            ?.sortedByDescending { it.lastModified() }
+            ?.drop(MAX_EXPORT_DIRECTORIES - 1)
+            ?.forEach { it.deleteRecursively() }
     }
 
     private fun List<Uri>.toClipData(label: String): ClipData {
@@ -124,5 +145,9 @@ class MainActivity : ComponentActivity() {
                 addItem(ClipData.Item(uri))
             }
         }
+    }
+
+    companion object {
+        private const val MAX_EXPORT_DIRECTORIES = 8
     }
 }
