@@ -4,21 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import com.example.gpxsplice.ui.GpxSplitApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            App()
+            MaterialTheme {
+                GpxSplitApp(
+                    document = null,
+                    onPickFile = {},
+                    onShareFiles = {},
+                    onShareZip = {},
+                    errorMessage = null,
+                )
+            }
         }
-    }
-}
-
-@Composable
-private fun App() {
-    MaterialTheme {
-        Text(text = "GPX Splice")
     }
 }
