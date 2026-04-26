@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
                             document = it
                             errorMessage = null
                         }.onFailure {
+                            document = null
                             errorMessage = "Could not read GPX file"
                         }
                     }

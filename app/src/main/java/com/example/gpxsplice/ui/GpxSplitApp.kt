@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,6 +30,11 @@ import com.example.gpxsplice.domain.SplitMode
 import com.example.gpxsplice.domain.SplitOptions
 import com.example.gpxsplice.domain.SplitResult
 import com.example.gpxsplice.domain.orderedPoints
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun GpxSplitApp(
@@ -43,8 +49,17 @@ fun GpxSplitApp(
     var input by remember { mutableStateOf("5") }
     var results by remember { mutableStateOf<List<SplitResult>>(emptyList()) }
     var localError by remember { mutableStateOf<String?>(null) }
+    var isSplitting by remember { mutableStateOf(false) }
+    var splitJob by remember { mutableStateOf<Job?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    val optionsResult = remember(mode, input) { runCatching { optionsFor(mode, input) } }
+    val splitOptions = optionsResult.getOrNull()
+    val inputError = optionsResult.exceptionOrNull()?.message
 
-    LaunchedEffect(document) {
+    LaunchedEffect(document, mode, input) {
+        splitJob?.cancel()
+        splitJob = null
+        isSplitting = false
         results = emptyList()
         localError = null
     }
@@ -57,6 +72,7 @@ fun GpxSplitApp(
         Button(onClick = onPickFile) { Text("Choose GPX file") }
         errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         localError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        inputError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         if (document != null) {
             Text("Loaded ${document.orderedPoints().size} track points")
@@ -66,21 +82,37 @@ fun GpxSplitApp(
                 onValueChange = { input = it },
                 label = { Text(inputLabel(mode)) },
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardTypeFor(mode)),
+                isError = inputError != null,
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
+                enabled = splitOptions != null && !isSplitting,
                 onClick = {
-                    runCatching {
-                        GpxSplitter.split(document, optionsFor(mode, input))
-                    }.onSuccess {
-                        localError = if (it.size > 100) "Warning: this creates more than 100 files." else null
-                        results = it
-                    }.onFailure {
-                        results = emptyList()
-                        localError = it.message ?: "Could not split GPX file"
+                    val currentOptions = splitOptions
+                    if (currentOptions == null || isSplitting) return@Button
+
+                    results = emptyList()
+                    localError = null
+                    isSplitting = true
+                    splitJob = coroutineScope.launch {
+                        try {
+                            val splitResults = withContext(Dispatchers.Default) {
+                                GpxSplitter.split(document, currentOptions)
+                            }
+                            localError = if (splitResults.size > 100) "Warning: this creates more than 100 files." else null
+                            results = splitResults
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Throwable) {
+                            results = emptyList()
+                            localError = error.message ?: "Could not split GPX file"
+                        } finally {
+                            isSplitting = false
+                            splitJob = null
+                        }
                     }
                 },
-            ) { Text("Split") }
+            ) { Text(if (isSplitting) "Splitting..." else "Split") }
         }
 
         if (results.isNotEmpty()) {

@@ -12,6 +12,8 @@ class GpxSplitterTest {
         return GpxDocument("fixture", listOf(Track("track", listOf(TrackSegment(points)))))
     }
 
+    private fun trackPoint(longitude: Double): TrackPoint = TrackPoint(latitude = 52.0, longitude = longitude)
+
     @Test
     fun splitsByMaxPoints() {
         val results = GpxSplitter.split(
@@ -65,22 +67,43 @@ class GpxSplitterTest {
         GpxSplitter.split(documentWithPoints(2), SplitOptions(mode = SplitMode.EQUAL_STAGES, stages = 3))
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsMultipleTracks() {
+    @Test
+    fun splitsMultipleTracksWhilePreservingTrackBoundaries() {
+        val firstTrackPoint = trackPoint(5.0)
+        val secondTrackPoint = trackPoint(5.01)
+        val thirdTrackPoint = trackPoint(5.02)
+        val fourthTrackPoint = trackPoint(5.03)
+        val fifthTrackPoint = trackPoint(5.04)
         val document =
             GpxDocument(
                 "fixture",
                 listOf(
-                    Track("track-1", listOf(TrackSegment(listOf(TrackPoint(52.0, 5.0))))),
-                    Track("track-2", listOf(TrackSegment(listOf(TrackPoint(52.0, 5.01))))),
+                    Track(
+                        "track-1",
+                        listOf(
+                            TrackSegment(listOf(firstTrackPoint, secondTrackPoint)),
+                            TrackSegment(listOf(thirdTrackPoint)),
+                        ),
+                    ),
+                    Track("track-2", listOf(TrackSegment(listOf(fourthTrackPoint, fifthTrackPoint)))),
                 ),
             )
 
-        GpxSplitter.split(document, SplitOptions(mode = SplitMode.MAX_POINTS, maxPoints = 1))
+        val results = GpxSplitter.split(document, SplitOptions(mode = SplitMode.MAX_POINTS, maxPoints = 2))
+
+        assertEquals(listOf(2, 2, 1), results.map { it.pointCount })
+        assertEquals(listOf(listOf("track-1"), listOf("track-1", "track-2"), listOf("track-2")), results.map { result -> result.document.tracks.map(Track::name) })
+        assertEquals(listOf(secondTrackPoint), results[0].document.tracks[0].segments[0].points.takeLast(1))
+        assertEquals(listOf(thirdTrackPoint), results[1].document.tracks[0].segments[0].points)
+        assertEquals(listOf(fourthTrackPoint), results[1].document.tracks[1].segments[0].points)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsMultipleSegments() {
+    @Test
+    fun splitsMultipleSegmentsWhilePreservingSegmentBoundaries() {
+        val firstPoint = trackPoint(5.0)
+        val secondPoint = trackPoint(5.01)
+        val thirdPoint = trackPoint(5.02)
+        val fourthPoint = trackPoint(5.03)
         val document =
             GpxDocument(
                 "fixture",
@@ -88,13 +111,51 @@ class GpxSplitterTest {
                     Track(
                         "track",
                         listOf(
-                            TrackSegment(listOf(TrackPoint(52.0, 5.0))),
-                            TrackSegment(listOf(TrackPoint(52.0, 5.01))),
+                            TrackSegment(listOf(firstPoint, secondPoint)),
+                            TrackSegment(listOf(thirdPoint, fourthPoint)),
                         ),
                     ),
                 ),
             )
 
-        GpxSplitter.split(document, SplitOptions(mode = SplitMode.MAX_POINTS, maxPoints = 1))
+        val results = GpxSplitter.split(document, SplitOptions(mode = SplitMode.MAX_POINTS, maxPoints = 3))
+
+        assertEquals(listOf(3, 1), results.map { it.pointCount })
+        assertEquals(2, results[0].document.tracks.single().segments.size)
+        assertEquals(listOf(firstPoint, secondPoint), results[0].document.tracks.single().segments[0].points)
+        assertEquals(listOf(thirdPoint), results[0].document.tracks.single().segments[1].points)
+        assertEquals(listOf(fourthPoint), results[1].document.tracks.single().segments[0].points)
+    }
+
+    @Test
+    fun distanceSplitDoesNotCountCrossSegmentJump() {
+        val firstPoint = trackPoint(5.0)
+        val secondPoint = trackPoint(5.01)
+        val thirdPoint = trackPoint(6.0)
+        val fourthPoint = trackPoint(6.01)
+        val document =
+            GpxDocument(
+                "fixture",
+                listOf(
+                    Track(
+                        "track",
+                        listOf(
+                            TrackSegment(listOf(firstPoint, secondPoint)),
+                            TrackSegment(listOf(thirdPoint, fourthPoint)),
+                        ),
+                    ),
+                ),
+            )
+
+        val results = GpxSplitter.split(document, SplitOptions(mode = SplitMode.DISTANCE, distanceMeters = 1_000.0))
+
+        assertEquals(1, results.size)
+        assertEquals(4, results.single().pointCount)
+        assertEquals(
+            haversineMeters(firstPoint, secondPoint) + haversineMeters(thirdPoint, fourthPoint),
+            results.single().distanceMeters,
+            0.001,
+        )
+        assertEquals(2, results.single().document.tracks.single().segments.size)
     }
 }
