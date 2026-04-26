@@ -7,12 +7,15 @@ import com.example.gpxsplice.domain.TrackSegment
 import java.io.InputStream
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
+import org.xml.sax.SAXException
 
 object GpxReader {
     fun read(input: InputStream): GpxDocument {
-        val document = DocumentBuilderFactory.newInstance().apply {
-            isNamespaceAware = true
-        }.newDocumentBuilder().parse(input)
+        val document = try {
+            newSecureDocumentBuilderFactory().newDocumentBuilder().parse(input)
+        } catch (error: SAXException) {
+            throw IllegalArgumentException("Invalid GPX XML: ${error.message}", error)
+        }
         val root = document.documentElement
 
         fun Element.elements(localName: String): List<Element> {
@@ -20,7 +23,7 @@ object GpxReader {
             val children = childNodes
             for (index in 0 until children.length) {
                 val child = children.item(index)
-                if (child is Element && child.localName == localName) {
+                if (child is Element && child.matchesName(localName)) {
                     matches += child
                 }
             }
@@ -41,9 +44,9 @@ object GpxReader {
                     TrackSegment(
                         points = segmentElement.elements("trkpt").map { pointElement ->
                             TrackPoint(
-                                latitude = pointElement.getAttribute("lat").toDouble(),
-                                longitude = pointElement.getAttribute("lon").toDouble(),
-                                elevationMeters = pointElement.firstElement("ele")?.textContent?.toDouble(),
+                                latitude = pointElement.parseRequiredDoubleAttribute("lat"),
+                                longitude = pointElement.parseRequiredDoubleAttribute("lon"),
+                                elevationMeters = pointElement.firstElement("ele")?.parseDoubleText("ele"),
                                 time = pointElement.firstElement("time")?.textContent?.takeIf(String::isNotBlank),
                             )
                         },
@@ -53,5 +56,30 @@ object GpxReader {
         }
 
         return GpxDocument(name = name, tracks = tracks)
+    }
+
+    private fun newSecureDocumentBuilderFactory(): DocumentBuilderFactory =
+        DocumentBuilderFactory.newInstance().apply {
+            isNamespaceAware = true
+            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+            setFeature("http://xml.org/sax/features/external-general-entities", false)
+            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+            setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            isXIncludeAware = false
+            isExpandEntityReferences = false
+        }
+
+    private fun Element.matchesName(name: String): Boolean = localName == name || tagName == name
+
+    private fun Element.parseRequiredDoubleAttribute(attributeName: String): Double {
+        val value = getAttribute(attributeName)
+        return value.toDoubleOrNull()
+            ?: throw IllegalArgumentException("Invalid $attributeName value '$value' in <${tagName}>")
+    }
+
+    private fun Element.parseDoubleText(elementName: String): Double {
+        val value = textContent.trim()
+        return value.toDoubleOrNull()
+            ?: throw IllegalArgumentException("Invalid $elementName value '$value' in <${tagName}>")
     }
 }
