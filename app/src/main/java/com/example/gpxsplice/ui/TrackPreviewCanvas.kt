@@ -1,6 +1,8 @@
 package com.example.gpxsplice.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -12,12 +14,12 @@ import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.SplitResult
 import com.example.gpxsplice.domain.orderedPoints
 
-private val previewColors = listOf(
-    Color(0xFF1565C0),
-    Color(0xFF2E7D32),
-    Color(0xFFC62828),
-    Color(0xFF6A1B9A),
-    Color(0xFFEF6C00),
+internal fun previewColors(colorScheme: ColorScheme): List<Color> = listOf(
+    colorScheme.primary,
+    colorScheme.secondary,
+    colorScheme.tertiary,
+    colorScheme.error,
+    colorScheme.outline,
 )
 
 internal data class PreviewGeometry(
@@ -27,6 +29,7 @@ internal data class PreviewGeometry(
 
 @Composable
 fun TrackPreviewCanvas(results: List<SplitResult>, modifier: Modifier = Modifier) {
+    val previewColors = previewColors(MaterialTheme.colorScheme)
     Canvas(modifier = modifier) {
         buildPreviewGeometry(results, size).forEachIndexed { resultIndex, geometry ->
             val color = previewColors[resultIndex % previewColors.size]

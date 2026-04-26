@@ -43,6 +43,7 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.7.6")
     implementation("androidx.compose.ui:ui-graphics:1.7.6")
     implementation("androidx.compose.material3:material3:1.3.1")
+    implementation("com.google.android.material:material:1.12.0")
     implementation("me.bvn13.sdk.android.gpx:GpxAndroidSdk:1.10.4")
 
     testImplementation("junit:junit:4.13.2")

@@ -5,10 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import com.example.gpxsplice.io.GpxReader
 import com.example.gpxsplice.io.ZipExporter
 import com.example.gpxsplice.io.writeExportFile
 import com.example.gpxsplice.ui.GpxSplitApp
+import com.example.gpxsplice.ui.theme.GpxSpliceTheme
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -33,8 +35,12 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        )
         setContent {
-            MaterialTheme {
+            GpxSpliceTheme {
                 var document by remember { mutableStateOf<GpxDocument?>(null) }
                 var errorMessage by remember { mutableStateOf<String?>(null) }
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->

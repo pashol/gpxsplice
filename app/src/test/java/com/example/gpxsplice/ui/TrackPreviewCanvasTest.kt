@@ -1,7 +1,9 @@
 package com.example.gpxsplice.ui
 
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.SplitResult
 import com.example.gpxsplice.domain.Track
@@ -11,6 +13,28 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class TrackPreviewCanvasTest {
+    @Test
+    fun previewColorsComeFromMaterialColorSchemeRoles() {
+        val colorScheme = darkColorScheme(
+            primary = Color(0xFF010203),
+            secondary = Color(0xFF111213),
+            tertiary = Color(0xFF212223),
+            error = Color(0xFF313233),
+            outline = Color(0xFF414243),
+        )
+
+        assertEquals(
+            listOf(
+                Color(0xFF010203),
+                Color(0xFF111213),
+                Color(0xFF212223),
+                Color(0xFF313233),
+                Color(0xFF414243),
+            ),
+            previewColors(colorScheme),
+        )
+    }
+
     @Test
     fun previewGeometryPreservesSegmentBoundariesWithinAResult() {
         val firstSegment = listOf(trackPoint(latitude = 0.0, longitude = 0.0), trackPoint(latitude = 1.0, longitude = 1.0))
