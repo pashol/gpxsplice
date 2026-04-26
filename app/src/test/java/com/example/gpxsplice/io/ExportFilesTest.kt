@@ -8,9 +8,11 @@ import com.example.gpxsplice.domain.TrackSegment
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.nio.file.Files
 import java.util.zip.ZipInputStream
 
@@ -64,6 +66,30 @@ class ExportFilesTest {
         }
     }
 
+    @Test
+    fun zipExporterRejectsUnsafeNames() {
+        unsafeExportFiles().forEach { file ->
+            assertRejectsIllegalArgument(file.fileName) {
+                ZipExporter.zipBytes(listOf(file))
+            }
+        }
+    }
+
+    @Test
+    fun writeExportFileRejectsUnsafeNames() {
+        val root = Files.createTempDirectory("export-files-test").toFile()
+
+        try {
+            unsafeExportFiles().forEach { file ->
+                assertRejectsIllegalArgument(file.fileName) {
+                    writeExportFile(File(root, "nested"), file)
+                }
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun splitResult(index: Int, documentName: String): SplitResult =
         SplitResult(
             index = index,
@@ -109,5 +135,22 @@ class ExportFilesTest {
             }
         }
         return LinkedHashMap(entries)
+    }
+
+    private fun unsafeExportFiles(): List<ExportFile> = listOf(
+        ExportFile("", "x".toByteArray()),
+        ExportFile("   ", "x".toByteArray()),
+        ExportFile("../part.gpx", "x".toByteArray()),
+        ExportFile("nested/part.gpx", "x".toByteArray()),
+        ExportFile("nested\\part.gpx", "x".toByteArray()),
+        ExportFile(File("/tmp/part.gpx").path, "x".toByteArray()),
+    )
+
+    private fun assertRejectsIllegalArgument(fileName: String, block: () -> Unit) {
+        try {
+            block()
+            fail("Expected IllegalArgumentException for '$fileName'")
+        } catch (_: IllegalArgumentException) {
+        }
     }
 }

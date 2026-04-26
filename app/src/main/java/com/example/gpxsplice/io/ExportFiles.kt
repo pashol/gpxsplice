@@ -25,6 +25,7 @@ object ZipExporter {
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { zip ->
             files.forEach { file ->
+                file.requireSafeFileName()
                 zip.putNextEntry(ZipEntry(file.fileName))
                 zip.write(file.bytes)
                 zip.closeEntry()
@@ -35,6 +36,15 @@ object ZipExporter {
 }
 
 fun writeExportFile(directory: File, file: ExportFile): File {
+    file.requireSafeFileName()
     directory.mkdirs()
     return File(directory, file.fileName).also { it.writeBytes(file.bytes) }
+}
+
+private fun ExportFile.requireSafeFileName() {
+    require(fileName.isNotBlank())
+    require(!File(fileName).isAbsolute)
+    require(!fileName.contains('/'))
+    require(!fileName.contains('\\'))
+    require(!fileName.contains(".."))
 }
