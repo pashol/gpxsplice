@@ -1,15 +1,13 @@
 package com.example.gpxsplice.domain
 
-import java.time.Instant
-
 data class GpxDocument(
+    val name: String?,
     val tracks: List<Track>,
-    val name: String? = null,
 )
 
 data class Track(
+    val name: String?,
     val segments: List<TrackSegment>,
-    val name: String? = null,
 )
 
 data class TrackSegment(
@@ -20,7 +18,7 @@ data class TrackPoint(
     val latitude: Double,
     val longitude: Double,
     val elevationMeters: Double? = null,
-    val time: Instant? = null,
+    val time: String? = null,
 )
 
 enum class SplitMode {
@@ -33,14 +31,12 @@ data class SplitOptions(
     val mode: SplitMode,
     val distanceMeters: Double? = null,
     val maxPoints: Int? = null,
-    val stageCount: Int? = null,
+    val stages: Int? = null,
 )
 
 data class SplitResult(
     val index: Int,
-    val tracks: List<Track>,
-    val pointRange: IntRange,
+    val document: GpxDocument,
     val pointCount: Int,
     val distanceMeters: Double,
-    val displayColorArgb: Long? = null,
 )
