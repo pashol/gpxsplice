@@ -18,6 +18,7 @@ fun haversineMeters(start: TrackPoint, end: TrackPoint): Double {
         sin(latitudeDeltaRadians / 2).pow(2) +
             cos(startLatitudeRadians) * cos(endLatitudeRadians) *
             sin(longitudeDeltaRadians / 2).pow(2)
+    val normalizedHaversine = haversine.coerceIn(0.0, 1.0)
 
-    return 2 * EARTH_RADIUS_METERS * asin(sqrt(haversine))
+    return 2 * EARTH_RADIUS_METERS * asin(sqrt(normalizedHaversine))
 }
