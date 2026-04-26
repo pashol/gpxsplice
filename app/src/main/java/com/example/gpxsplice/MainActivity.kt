@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
                         }.onFailure {
                             document = null
                             inputFileName = null
-                            errorMessage = "Could not read GPX file"
+                            errorMessage = formatImportErrorMessage(it)
                         }
                     }
                 }
@@ -164,14 +164,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun Uri.displayName(): String? {
-        contentResolver.query(this, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (!cursor.moveToFirst()) return null
-            return cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
-        }
-        return null
-    }
-
     private fun List<Uri>.toClipData(label: String): ClipData {
         val firstUri = first()
         return ClipData.newUri(contentResolver, label, firstUri).apply {
@@ -181,7 +173,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun Uri.displayName(): String? {
+        contentResolver.query(this, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+        }
+        return null
+    }
+
     companion object {
         private const val EXPORT_DIR_MAX_AGE_MS = 24 * 60 * 60 * 1000L
     }
+}
+
+internal fun formatImportErrorMessage(error: Throwable): String {
+    val detail = error.message?.trim()?.takeIf(String::isNotEmpty) ?: return "Could not read GPX file"
+    return "Could not read GPX file: $detail"
 }

@@ -123,7 +123,7 @@ class GpxReaderWriterTest {
     }
 
     @Test
-    fun rejectsDoctypeInput() {
+    fun ignoresExternalEntitiesDeclaredInDoctype() {
         val xml = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE gpx [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
@@ -136,11 +136,8 @@ class GpxReaderWriterTest {
             </gpx>
         """.trimIndent()
 
-        try {
-            GpxReader.read(xml.byteInputStream())
-            fail("Expected DOCTYPE input to be rejected")
-        } catch (error: IllegalArgumentException) {
-            assertTrue(error.message!!.contains("DOCTYPE"))
-        }
+        val document = GpxReader.read(xml.byteInputStream())
+
+        assertNull(document.orderedPoints().single().time)
     }
 }
