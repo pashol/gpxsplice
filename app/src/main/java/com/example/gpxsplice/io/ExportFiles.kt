@@ -12,13 +12,21 @@ data class ExportFile(
 )
 
 object ExportBuilder {
-    fun gpxFiles(results: List<SplitResult>): List<ExportFile> = results.map { result ->
+    fun gpxFiles(results: List<SplitResult>, inputFileName: String? = null): List<ExportFile> = results.map { result ->
         ExportFile(
-            fileName = "split-${result.index}.gpx",
+            fileName = exportFileName(
+                inputFileName = inputFileName,
+                suffix = "-split-${result.index}",
+                defaultName = "split-${result.index}.gpx",
+                outputExtension = ".gpx",
+            ),
             bytes = GpxWriter.write(result.document).toByteArray(Charsets.UTF_8),
         )
     }
 }
+
+fun exportZipFileName(inputFileName: String?): String =
+    exportFileName(inputFileName, suffix = "-splits", defaultName = "gpx-splits.zip", outputExtension = ".zip")
 
 object ZipExporter {
     fun zipBytes(files: List<ExportFile>): ByteArray {
@@ -47,4 +55,20 @@ private fun ExportFile.requireSafeFileName() {
     require(!fileName.contains('/'))
     require(!fileName.contains('\\'))
     require(!fileName.contains(".."))
+}
+
+private fun exportFileName(
+    inputFileName: String?,
+    suffix: String,
+    defaultName: String,
+    outputExtension: String,
+): String {
+    val trimmedName = inputFileName?.trim()?.takeIf(String::isNotEmpty) ?: return defaultName
+    val extensionSeparator = trimmedName.lastIndexOf('.')
+    if (extensionSeparator <= 0 || extensionSeparator == trimmedName.lastIndex) {
+        return "$trimmedName$suffix$outputExtension"
+    }
+
+    val baseName = trimmedName.substring(0, extensionSeparator)
+    return "$baseName$suffix$outputExtension"
 }

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -22,6 +23,7 @@ import com.example.gpxsplice.io.ExportBuilder
 import com.example.gpxsplice.io.ExportFile
 import com.example.gpxsplice.io.GpxReader
 import com.example.gpxsplice.io.ZipExporter
+import com.example.gpxsplice.io.exportZipFileName
 import com.example.gpxsplice.io.writeExportFile
 import com.example.gpxsplice.ui.GpxSplitApp
 import com.example.gpxsplice.ui.theme.GpxSpliceTheme
@@ -42,10 +44,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             GpxSpliceTheme {
                 var document by remember { mutableStateOf<GpxDocument?>(null) }
+                var inputFileName by remember { mutableStateOf<String?>(null) }
                 var errorMessage by remember { mutableStateOf<String?>(null) }
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                     if (uri == null) return@rememberLauncherForActivityResult
                     lifecycleScope.launch {
+                        val selectedFileName = uri.displayName()
                         runCatchingPreservingCancellation {
                             withContext(Dispatchers.IO) {
                                 contentResolver.openInputStream(uri).use { input ->
@@ -55,9 +59,11 @@ class MainActivity : ComponentActivity() {
                             }
                         }.onSuccess {
                             document = it
+                            inputFileName = selectedFileName
                             errorMessage = null
                         }.onFailure {
                             document = null
+                            inputFileName = null
                             errorMessage = "Could not read GPX file"
                         }
                     }
@@ -69,7 +75,7 @@ class MainActivity : ComponentActivity() {
                     onShareFiles = { results ->
                         lifecycleScope.launch {
                             runCatchingPreservingCancellation {
-                                shareFiles(ExportBuilder.gpxFiles(results))
+                                shareFiles(ExportBuilder.gpxFiles(results, inputFileName))
                             }.onSuccess {
                                 errorMessage = null
                             }.onFailure {
@@ -80,7 +86,7 @@ class MainActivity : ComponentActivity() {
                     onShareZip = { results ->
                         lifecycleScope.launch {
                             runCatchingPreservingCancellation {
-                                shareZip(results)
+                                shareZip(results, inputFileName)
                             }.onSuccess {
                                 errorMessage = null
                             }.onFailure {
@@ -111,12 +117,12 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(intent, "Share GPX files"))
     }
 
-    private suspend fun shareZip(results: List<SplitResult>) {
+    private suspend fun shareZip(results: List<SplitResult>, inputFileName: String?) {
         val uri = withContext(Dispatchers.IO) {
             val exportDir = createExportDir()
             val zipFile = writeExportFile(
                 exportDir,
-                ExportFile("gpx-splits.zip", ZipExporter.zipBytes(ExportBuilder.gpxFiles(results))),
+                ExportFile(exportZipFileName(inputFileName), ZipExporter.zipBytes(ExportBuilder.gpxFiles(results, inputFileName))),
             )
             FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", zipFile)
         }
@@ -156,6 +162,14 @@ class MainActivity : ComponentActivity() {
         } catch (error: Throwable) {
             Result.failure(error)
         }
+    }
+
+    private fun Uri.displayName(): String? {
+        contentResolver.query(this, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+        }
+        return null
     }
 
     private fun List<Uri>.toClipData(label: String): ClipData {

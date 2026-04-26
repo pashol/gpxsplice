@@ -34,6 +34,26 @@ class ExportFilesTest {
     }
 
     @Test
+    fun gpxFilesUseInputFileNameWithIndexedSuffix() {
+        val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 1)), inputFileName = "ride.gpx")
+
+        assertEquals(listOf("ride-split-1.gpx"), files.map { it.fileName })
+    }
+
+    @Test
+    fun zipFileNameUsesInputFileNameWithSuffix() {
+        assertEquals("ride-splits.zip", exportZipFileName("ride.gpx"))
+    }
+
+    @Test
+    fun exportNamesFallBackWhenInputFileNameMissing() {
+        val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 2)), inputFileName = null)
+
+        assertEquals(listOf("split-2.gpx"), files.map { it.fileName })
+        assertEquals("gpx-splits.zip", exportZipFileName(null))
+    }
+
+    @Test
     fun createsZipWithAllEntries() {
         val files = listOf(
             ExportFile("part-1.gpx", "one".toByteArray()),
@@ -90,7 +110,7 @@ class ExportFilesTest {
         }
     }
 
-    private fun splitResult(index: Int, documentName: String): SplitResult =
+    private fun splitResult(index: Int, documentName: String = "Track"): SplitResult =
         SplitResult(
             index = index,
             document = GpxDocument(
