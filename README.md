@@ -42,11 +42,6 @@ app/src/main/java/com/example/gpxsplice/
 ./gradlew :app:assembleDebug
 ```
 
-> If Gradle cannot find the Android SDK, run with:
-> ```bash
-> ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:assembleDebug
-> ```
-
 ## Test
 
 ```bash
