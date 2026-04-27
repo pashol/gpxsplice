@@ -26,7 +26,7 @@ class ExportFilesTest {
 
         val files = ExportBuilder.gpxFiles(results)
 
-        assertEquals(listOf("split-1.gpx", "split-2.gpx"), files.map { it.fileName })
+        assertEquals(listOf("split-001.gpx", "split-002.gpx"), files.map { it.fileName })
         assertEquals(
             results.map { GpxWriter.write(it.document).toByteArray(Charsets.UTF_8).toList() },
             files.map { it.bytes.toList() },
@@ -37,7 +37,14 @@ class ExportFilesTest {
     fun gpxFilesUseInputFileNameWithIndexedSuffix() {
         val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 1)), inputFileName = "ride.gpx")
 
-        assertEquals(listOf("ride-split-1.gpx"), files.map { it.fileName })
+        assertEquals(listOf("ride-split-001.gpx"), files.map { it.fileName })
+    }
+
+    @Test
+    fun gpxFilesPadSplitIndexesToThreeDigits() {
+        val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 1), splitResult(index = 12)))
+
+        assertEquals(listOf("split-001.gpx", "split-012.gpx"), files.map { it.fileName })
     }
 
     @Test
@@ -49,7 +56,7 @@ class ExportFilesTest {
     fun exportNamesFallBackWhenInputFileNameMissing() {
         val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 2)), inputFileName = null)
 
-        assertEquals(listOf("split-2.gpx"), files.map { it.fileName })
+        assertEquals(listOf("split-002.gpx"), files.map { it.fileName })
         assertEquals("gpx-splits.zip", exportZipFileName(null))
     }
 

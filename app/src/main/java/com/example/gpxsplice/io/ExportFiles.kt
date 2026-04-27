@@ -13,11 +13,12 @@ data class ExportFile(
 
 object ExportBuilder {
     fun gpxFiles(results: List<SplitResult>, inputFileName: String? = null): List<ExportFile> = results.map { result ->
+        val splitIndex = result.index.toString().padStart(3, '0')
         ExportFile(
             fileName = exportFileName(
                 inputFileName = inputFileName,
-                suffix = "-split-${result.index}",
-                defaultName = "split-${result.index}.gpx",
+                suffix = "-split-$splitIndex",
+                defaultName = "split-$splitIndex.gpx",
                 outputExtension = ".gpx",
             ),
             bytes = GpxWriter.write(result.document).toByteArray(Charsets.UTF_8),
