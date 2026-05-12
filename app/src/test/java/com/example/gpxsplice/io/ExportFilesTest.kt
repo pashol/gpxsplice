@@ -117,6 +117,32 @@ class ExportFilesTest {
         }
     }
 
+    @Test
+    fun buildsMergedGpxFileWithWriterBytes() {
+        val document = GpxDocument(
+            name = "Merged GPX",
+            tracks = listOf(
+                Track("merged-track", listOf(TrackSegment(listOf(TrackPoint(52.0, 5.0))))),
+            ),
+        )
+
+        val file = ExportBuilder.mergedGpxFile(document, firstInputFileName = "ride-day-1.gpx")
+
+        assertEquals("ride-day-1-merged.gpx", file.fileName)
+        assertEquals(GpxWriter.write(document).toByteArray(Charsets.UTF_8).toList(), file.bytes.toList())
+    }
+
+    @Test
+    fun mergedFileNameFallsBackWhenInputFileNameMissing() {
+        assertEquals("merged.gpx", mergedGpxFileName(null))
+        assertEquals("merged.gpx", mergedGpxFileName("   "))
+    }
+
+    @Test
+    fun mergedFileNameHandlesExtensionlessInputName() {
+        assertEquals("activity-merged.gpx", mergedGpxFileName("activity"))
+    }
+
     private fun splitResult(index: Int, documentName: String = "Track"): SplitResult =
         SplitResult(
             index = index,

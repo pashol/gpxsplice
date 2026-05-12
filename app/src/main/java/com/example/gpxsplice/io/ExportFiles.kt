@@ -1,5 +1,6 @@
 package com.example.gpxsplice.io
 
+import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.SplitResult
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -24,10 +25,19 @@ object ExportBuilder {
             bytes = GpxWriter.write(result.document).toByteArray(Charsets.UTF_8),
         )
     }
+
+    fun mergedGpxFile(document: GpxDocument, firstInputFileName: String?): ExportFile =
+        ExportFile(
+            fileName = mergedGpxFileName(firstInputFileName),
+            bytes = GpxWriter.write(document).toByteArray(Charsets.UTF_8),
+        )
 }
 
 fun exportZipFileName(inputFileName: String?): String =
     exportFileName(inputFileName, suffix = "-splits", defaultName = "gpx-splits.zip", outputExtension = ".zip")
+
+fun mergedGpxFileName(inputFileName: String?): String =
+    exportFileName(inputFileName, suffix = "-merged", defaultName = "merged.gpx", outputExtension = ".gpx")
 
 object ZipExporter {
     fun zipBytes(files: List<ExportFile>): ByteArray {
