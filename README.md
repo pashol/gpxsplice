@@ -6,8 +6,9 @@ Native Android GPX splitter inspired by GPXto GPX Split.
 
 - Pick a GPX file from Android storage.
 - Split tracks by distance, maximum points, or equal stages.
-- Preview split tracks offline with colored line segments.
-- Share generated GPX files or a ZIP through Android share sheet.
+- Pick multiple GPX files and merge them into one GPX file.
+- Preview split or merged tracks offline with colored line segments.
+- Share generated GPX files, a ZIP of split files, or one merged GPX file through Android share sheet.
 
 ## Tech Stack
 
@@ -75,4 +76,4 @@ After splitting, you can share the results as:
 - **Individual GPX files** — each stage as a separate `.gpx` file
 - **ZIP archive** — all stages packed into a single `.zip` file
 
-Exported files are shared via the Android share sheet using `FileProvider`.
+After merging, you can share one combined `.gpx` file. Exported files are shared via the Android share sheet using `FileProvider`.
