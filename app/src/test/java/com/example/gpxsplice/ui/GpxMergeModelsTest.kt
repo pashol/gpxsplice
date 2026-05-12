@@ -34,6 +34,18 @@ class GpxMergeModelsTest {
     }
 
     @Test
+    fun chronologicalSortComparesOffsetTimestampsByInstant() {
+        val earlier = mergeInput("earlier.gpx", listOf("2026-05-01T10:00:00+02:00"))
+        val later = mergeInput("later.gpx", listOf("2026-05-01T09:00:00Z"))
+
+        val result = orderMergeInputs(listOf(later, earlier))
+
+        assertEquals(listOf("earlier.gpx", "later.gpx"), result.items.map { it.fileName })
+        assertTrue(result.wasChronologicallySorted)
+        assertNull(result.message)
+    }
+
+    @Test
     fun chronologicalSortIsSkippedWhenAnyFileHasNoTimestamp() {
         val dated = mergeInput("dated.gpx", listOf("2026-05-01T10:00:00Z"))
         val undated = mergeInput("undated.gpx", listOf(null))
@@ -41,6 +53,18 @@ class GpxMergeModelsTest {
         val result = orderMergeInputs(listOf(dated, undated))
 
         assertEquals(listOf("dated.gpx", "undated.gpx"), result.items.map { it.fileName })
+        assertFalse(result.wasChronologicallySorted)
+        assertEquals("Some files have no timestamps, so selected order is preserved.", result.message)
+    }
+
+    @Test
+    fun chronologicalSortIsSkippedWhenAnyFileHasInvalidTimestamp() {
+        val dated = mergeInput("dated.gpx", listOf("2026-05-01T10:00:00Z"))
+        val invalid = mergeInput("invalid.gpx", listOf("not-a-time"))
+
+        val result = orderMergeInputs(listOf(dated, invalid))
+
+        assertEquals(listOf("dated.gpx", "invalid.gpx"), result.items.map { it.fileName })
         assertFalse(result.wasChronologicallySorted)
         assertEquals("Some files have no timestamps, so selected order is preserved.", result.message)
     }

@@ -2,6 +2,8 @@ package com.example.gpxsplice.ui
 
 import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.orderedPoints
+import java.time.Instant
+import java.time.OffsetDateTime
 
 data class MergeInput(
     val fileName: String,
@@ -10,6 +12,9 @@ data class MergeInput(
     val pointCount: Int = document.orderedPoints().size
     val earliestTimestamp: String? = document.orderedPoints()
         .mapNotNull { it.time?.trim()?.takeIf(String::isNotEmpty) }
+        .minOrNull()
+    val earliestInstant: Instant? = document.orderedPoints()
+        .mapNotNull { it.time?.trim()?.takeIf(String::isNotEmpty)?.toInstantOrNull() }
         .minOrNull()
 }
 
@@ -29,7 +34,7 @@ fun orderMergeInputs(items: List<MergeInput>): MergeOrderingResult {
         return MergeOrderingResult(items = emptyList(), wasChronologicallySorted = false, message = null)
     }
 
-    val allHaveTimestamps = items.all { it.earliestTimestamp != null }
+    val allHaveTimestamps = items.all { it.earliestInstant != null }
     if (!allHaveTimestamps) {
         return MergeOrderingResult(
             items = items,
@@ -39,11 +44,18 @@ fun orderMergeInputs(items: List<MergeInput>): MergeOrderingResult {
     }
 
     return MergeOrderingResult(
-        items = items.sortedBy { it.earliestTimestamp },
+        items = items.sortedBy { it.earliestInstant },
         wasChronologicallySorted = true,
         message = null,
     )
 }
+
+private fun String.toInstantOrNull(): Instant? =
+    try {
+        OffsetDateTime.parse(this).toInstant()
+    } catch (_: RuntimeException) {
+        null
+    }
 
 fun moveMergeInput(items: List<MergeInput>, fromIndex: Int, direction: MergeMoveDirection): List<MergeInput> {
     val toIndex = when (direction) {
