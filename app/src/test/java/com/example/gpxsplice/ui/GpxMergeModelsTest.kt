@@ -102,14 +102,16 @@ class GpxMergeModelsTest {
     }
 
     @Test
-    fun mergeRequiresAtLeastTwoItemsWithTrackPoints() {
+    fun mergeRequiresAtLeastTwoItemsAndOneFileWithTrackPoints() {
         val first = mergeInput("first.gpx", listOf("2026-05-01T10:00:00Z"))
         val second = mergeInput("second.gpx", listOf("2026-05-02T10:00:00Z"))
-        val empty = MergeInput(fileName = "empty.gpx", document = GpxDocument("empty", emptyList()))
+        val firstEmpty = MergeInput(fileName = "first-empty.gpx", document = GpxDocument("first-empty", emptyList()))
+        val secondEmpty = MergeInput(fileName = "second-empty.gpx", document = GpxDocument("second-empty", emptyList()))
 
         assertFalse(canMerge(emptyList()))
         assertFalse(canMerge(listOf(first)))
-        assertFalse(canMerge(listOf(first, empty)))
+        assertFalse(canMerge(listOf(firstEmpty, secondEmpty)))
+        assertTrue(canMerge(listOf(first, firstEmpty)))
         assertTrue(canMerge(listOf(first, second)))
     }
 

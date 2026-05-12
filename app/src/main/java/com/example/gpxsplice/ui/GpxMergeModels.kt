@@ -77,4 +77,4 @@ fun moveMergeInput(items: List<MergeInput>, fromIndex: Int, direction: MergeMove
 }
 
 fun canMerge(items: List<MergeInput>): Boolean =
-    items.size >= 2 && items.all { it.pointCount > 0 }
+    items.size >= 2 && items.any { it.pointCount > 0 }
