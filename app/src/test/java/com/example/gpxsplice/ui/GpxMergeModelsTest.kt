@@ -22,6 +22,16 @@ class GpxMergeModelsTest {
     }
 
     @Test
+    fun earliestTimestampUsesEarliestParsedInstantForOffsetTimes() {
+        val item = mergeInput(
+            fileName = "offsets.gpx",
+            times = listOf("2026-05-01T09:00:00Z", "2026-05-01T10:00:00+02:00"),
+        )
+
+        assertEquals("2026-05-01T10:00:00+02:00", item.earliestTimestamp)
+    }
+
+    @Test
     fun chronologicalSortAppliesWhenEveryFileHasTimestamp() {
         val later = mergeInput("later.gpx", listOf("2026-05-02T10:00:00Z"))
         val earlier = mergeInput("earlier.gpx", listOf("2026-05-01T10:00:00Z"))

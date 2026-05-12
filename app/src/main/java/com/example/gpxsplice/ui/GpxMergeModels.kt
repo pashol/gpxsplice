@@ -10,12 +10,11 @@ data class MergeInput(
     val document: GpxDocument,
 ) {
     val pointCount: Int = document.orderedPoints().size
-    val earliestTimestamp: String? = document.orderedPoints()
-        .mapNotNull { it.time?.trim()?.takeIf(String::isNotEmpty) }
+    private val earliestParsedTimestamp: ParsedTimestamp? = document.orderedPoints()
+        .mapNotNull { it.time?.trim()?.takeIf(String::isNotEmpty)?.toParsedTimestampOrNull() }
         .minOrNull()
-    val earliestInstant: Instant? = document.orderedPoints()
-        .mapNotNull { it.time?.trim()?.takeIf(String::isNotEmpty)?.toInstantOrNull() }
-        .minOrNull()
+    val earliestTimestamp: String? = earliestParsedTimestamp?.value
+    val earliestInstant: Instant? = earliestParsedTimestamp?.instant
 }
 
 data class MergeOrderingResult(
@@ -50,9 +49,16 @@ fun orderMergeInputs(items: List<MergeInput>): MergeOrderingResult {
     )
 }
 
-private fun String.toInstantOrNull(): Instant? =
+private data class ParsedTimestamp(
+    val value: String,
+    val instant: Instant,
+) : Comparable<ParsedTimestamp> {
+    override fun compareTo(other: ParsedTimestamp): Int = instant.compareTo(other.instant)
+}
+
+private fun String.toParsedTimestampOrNull(): ParsedTimestamp? =
     try {
-        OffsetDateTime.parse(this).toInstant()
+        ParsedTimestamp(value = this, instant = OffsetDateTime.parse(this).toInstant())
     } catch (_: RuntimeException) {
         null
     }
