@@ -94,6 +94,17 @@ class ExportFilesTest {
     }
 
     @Test
+    fun exportFileEqualityUsesByteContent() {
+        val file = ExportFile("part.gpx", byteArrayOf(1, 2, 3))
+        val sameContent = ExportFile("part.gpx", byteArrayOf(1, 2, 3))
+        val differentContent = ExportFile("part.gpx", byteArrayOf(1, 2, 4))
+
+        assertEquals(file, sameContent)
+        assertEquals(file.hashCode(), sameContent.hashCode())
+        assertFalse(file == differentContent)
+    }
+
+    @Test
     fun zipExporterRejectsUnsafeNames() {
         unsafeExportFiles().forEach { file ->
             assertRejectsIllegalArgument(file.fileName) {
@@ -115,6 +126,32 @@ class ExportFilesTest {
         } finally {
             root.deleteRecursively()
         }
+    }
+
+    @Test
+    fun buildsMergedGpxFileWithWriterBytes() {
+        val document = GpxDocument(
+            name = "Merged GPX",
+            tracks = listOf(
+                Track("merged-track", listOf(TrackSegment(listOf(TrackPoint(52.0, 5.0))))),
+            ),
+        )
+
+        val file = ExportBuilder.mergedGpxFile(document, firstInputFileName = "ride-day-1.gpx")
+
+        assertEquals("ride-day-1-merged.gpx", file.fileName)
+        assertEquals(GpxWriter.write(document).toByteArray(Charsets.UTF_8).toList(), file.bytes.toList())
+    }
+
+    @Test
+    fun mergedFileNameFallsBackWhenInputFileNameMissing() {
+        assertEquals("merged.gpx", mergedGpxFileName(null))
+        assertEquals("merged.gpx", mergedGpxFileName("   "))
+    }
+
+    @Test
+    fun mergedFileNameHandlesExtensionlessInputName() {
+        assertEquals("activity-merged.gpx", mergedGpxFileName("activity"))
     }
 
     private fun splitResult(index: Int, documentName: String = "Track"): SplitResult =

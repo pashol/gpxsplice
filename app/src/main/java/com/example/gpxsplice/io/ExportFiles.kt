@@ -1,15 +1,24 @@
 package com.example.gpxsplice.io
 
+import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.SplitResult
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-data class ExportFile(
+class ExportFile(
     val fileName: String,
     val bytes: ByteArray,
-)
+) {
+    override fun equals(other: Any?): Boolean =
+        this === other ||
+            other is ExportFile &&
+            fileName == other.fileName &&
+            bytes.contentEquals(other.bytes)
+
+    override fun hashCode(): Int = 31 * fileName.hashCode() + bytes.contentHashCode()
+}
 
 object ExportBuilder {
     fun gpxFiles(results: List<SplitResult>, inputFileName: String? = null): List<ExportFile> = results.map { result ->
@@ -24,10 +33,19 @@ object ExportBuilder {
             bytes = GpxWriter.write(result.document).toByteArray(Charsets.UTF_8),
         )
     }
+
+    fun mergedGpxFile(document: GpxDocument, firstInputFileName: String?): ExportFile =
+        ExportFile(
+            fileName = mergedGpxFileName(firstInputFileName),
+            bytes = GpxWriter.write(document).toByteArray(Charsets.UTF_8),
+        )
 }
 
 fun exportZipFileName(inputFileName: String?): String =
     exportFileName(inputFileName, suffix = "-splits", defaultName = "gpx-splits.zip", outputExtension = ".zip")
+
+fun mergedGpxFileName(inputFileName: String?): String =
+    exportFileName(inputFileName, suffix = "-merged", defaultName = "merged.gpx", outputExtension = ".gpx")
 
 object ZipExporter {
     fun zipBytes(files: List<ExportFile>): ByteArray {

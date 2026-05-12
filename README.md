@@ -6,8 +6,9 @@ Native Android GPX splitter inspired by GPXto GPX Split.
 
 - Pick a GPX file from Android storage.
 - Split tracks by distance, maximum points, or equal stages.
-- Preview split tracks offline with colored line segments.
-- Share generated GPX files or a ZIP through Android share sheet.
+- Pick multiple GPX files and merge them into one GPX file.
+- Preview split or merged tracks offline with colored line segments.
+- Share generated GPX files, a ZIP of split files, or one merged GPX file through Android share sheet.
 
 ## Tech Stack
 
@@ -22,8 +23,9 @@ Native Android GPX splitter inspired by GPXto GPX Split.
 ```
 app/src/main/java/com/example/gpxsplice/
 ├── MainActivity.kt          # Entry point, file picking and sharing
-├── domain/                  # GPX models and splitting logic
+├── domain/                  # GPX models plus splitting and merging logic
 │   ├── GpxModels.kt         # Data classes (GpxDocument, Track, TrackPoint, etc.)
+│   ├── GpxMerger.kt         # Core merging algorithm
 │   ├── GpxSplitter.kt       # Core splitting algorithm
 │   └── Distance.kt          # Haversine distance calculation
 ├── io/                      # GPX reading, writing, and export
@@ -31,6 +33,7 @@ app/src/main/java/com/example/gpxsplice/
 │   ├── GpxWriter.kt         # GPX file serialization
 │   └── ExportFiles.kt       # ZIP and file export utilities
 ├── ui/                      # Compose UI
+│   ├── GpxMergeModels.kt    # Merge workflow UI state models
 │   ├── GpxSplitApp.kt       # Main app UI scaffold and controls
 │   ├── TrackPreviewCanvas.kt # Canvas preview of split tracks
 │   └── theme/AppTheme.kt    # Material 3 theme
@@ -42,6 +45,11 @@ app/src/main/java/com/example/gpxsplice/
 ./gradlew :app:assembleDebug
 ```
 
+> If Gradle cannot find the Android SDK, run with:
+> ```bash
+> ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:assembleDebug
+> ```
+
 ## Test
 
 ```bash
@@ -51,10 +59,10 @@ app/src/main/java/com/example/gpxsplice/
 ### Test Coverage
 
 Unit tests cover:
-- Domain logic (`DistanceTest`, `GpxSplitterTest`)
-- GPX I/O (`GpxReaderTest`, `GpxReaderWriterTest`, `ExportFilesTest`)
-- UI components (`TrackPreviewCanvasTest`, `AppThemeTest`)
-- Error handling (`ImportErrorFormatterTest`, `MainActivityTest`)
+- Domain logic for splitting and merging (`DistanceTest`, `GpxSplitterTest`, `GpxMergerTest`)
+- GPX I/O (`GpxReaderWriterTest`, `ExportFilesTest`)
+- UI components and merge UI state (`TrackPreviewCanvasTest`, `GpxMergeModelsTest`, `GpxSplitLayoutTest`, `AppThemeTest`)
+- Activity formatting and helpers (`MainActivityTest`)
 
 ## Splitting Modes
 
@@ -70,4 +78,4 @@ After splitting, you can share the results as:
 - **Individual GPX files** — each stage as a separate `.gpx` file
 - **ZIP archive** — all stages packed into a single `.zip` file
 
-Exported files are shared via the Android share sheet using `FileProvider`.
+After merging, you can share one combined `.gpx` file. Exported files are shared via the Android share sheet using `FileProvider`.

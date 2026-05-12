@@ -7,9 +7,9 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +26,7 @@ import com.example.gpxsplice.io.ZipExporter
 import com.example.gpxsplice.io.exportZipFileName
 import com.example.gpxsplice.io.writeExportFile
 import com.example.gpxsplice.ui.GpxSplitApp
+import com.example.gpxsplice.ui.MergeInput
 import com.example.gpxsplice.ui.theme.GpxSpliceTheme
 import java.io.File
 import java.util.UUID
@@ -48,6 +49,10 @@ class MainActivity : ComponentActivity() {
                 var errorMessage by remember { mutableStateOf<String?>(null) }
                 var isImporting by remember { mutableStateOf(false) }
                 var importFileName by remember { mutableStateOf<String?>(null) }
+                var mergeInputs by remember { mutableStateOf<List<MergeInput>>(emptyList()) }
+                var isImportingMergeFiles by remember { mutableStateOf(false) }
+                var mergeImportCount by remember { mutableStateOf(0) }
+
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                     if (uri == null) return@rememberLauncherForActivityResult
                     lifecycleScope.launch {
@@ -73,6 +78,66 @@ class MainActivity : ComponentActivity() {
                         }.also {
                             isImporting = false
                             importFileName = null
+                        }
+                    }
+                }
+
+                val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+                    if (uris.isEmpty()) return@rememberLauncherForActivityResult
+                    if (uris.size < 2) {
+                        mergeInputs = emptyList()
+                        errorMessage = "Choose at least 2 GPX files to merge"
+                        return@rememberLauncherForActivityResult
+                    }
+                    lifecycleScope.launch {
+                        isImportingMergeFiles = true
+                        mergeImportCount = uris.size
+                        errorMessage = null
+                        try {
+                            runCatchingPreservingCancellation {
+                                withContext(Dispatchers.IO) {
+                                    uris.mapIndexed { index, uri ->
+                                        val fileName = try {
+                                            uri.displayName()
+                                        } catch (error: CancellationException) {
+                                            throw error
+                                        } catch (_: Throwable) {
+                                            null
+                                        } ?: "GPX file ${index + 1}"
+                                        val parsedDocument = try {
+                                            contentResolver.openInputStream(uri).use { input ->
+                                                if (input == null) {
+                                                    throw IllegalStateException("Could not open $fileName")
+                                                }
+                                                try {
+                                                    GpxReader.read(input)
+                                                } catch (error: CancellationException) {
+                                                    throw error
+                                                } catch (error: Throwable) {
+                                                    val detail = error.message?.trim()?.takeIf(String::isNotEmpty) ?: "invalid GPX file"
+                                                    throw IllegalArgumentException("Could not read $fileName: $detail", error)
+                                                }
+                                            }
+                                        } catch (error: IllegalArgumentException) {
+                                            throw error
+                                        } catch (error: CancellationException) {
+                                            throw error
+                                        } catch (error: Throwable) {
+                                            throw IllegalStateException("Could not open $fileName", error)
+                                        }
+                                        MergeInput(fileName, parsedDocument)
+                                    }
+                                }
+                            }.onSuccess {
+                                mergeInputs = it
+                                errorMessage = null
+                            }.onFailure {
+                                mergeInputs = emptyList()
+                                errorMessage = it.message ?: "Could not read GPX files"
+                            }
+                        } finally {
+                            isImportingMergeFiles = false
+                            mergeImportCount = 0
                         }
                     }
                 }
@@ -109,6 +174,25 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     errorMessage = errorMessage,
+                    mergeInputs = mergeInputs,
+                    isImportingMergeFiles = isImportingMergeFiles,
+                    mergeImportStatusMessage = if (isImportingMergeFiles) formatMergeImportProgressMessage(mergeImportCount) else null,
+                    onPickMergeFiles = {
+                        if (!isImportingMergeFiles) {
+                            mergePicker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*"))
+                        }
+                    },
+                    onShareMergedFile = { mergedDocument, firstInputFileName ->
+                        lifecycleScope.launch {
+                            runCatchingPreservingCancellation {
+                                shareMergedFile(mergedDocument, firstInputFileName)
+                            }.onSuccess {
+                                errorMessage = null
+                            }.onFailure {
+                                errorMessage = "Could not share merged GPX"
+                            }
+                        }
+                    },
                 )
             }
         }
@@ -147,6 +231,21 @@ class MainActivity : ComponentActivity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, "Share ZIP"))
+    }
+
+    private suspend fun shareMergedFile(document: GpxDocument, firstInputFileName: String?) {
+        val uri = withContext(Dispatchers.IO) {
+            val exportDir = createExportDir()
+            val output = writeExportFile(exportDir, ExportBuilder.mergedGpxFile(document, firstInputFileName))
+            FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", output)
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/gpx+xml"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newUri(contentResolver, "Merged GPX", uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(intent, "Share merged GPX"))
     }
 
     private fun createExportDir(): File {
@@ -209,3 +308,10 @@ internal fun formatImportProgressMessage(fileName: String?): String {
     val trimmedFileName = fileName?.trim()?.takeIf(String::isNotEmpty) ?: return "Opening GPX file..."
     return "Opening $trimmedFileName..."
 }
+
+internal fun formatMergeImportProgressMessage(fileCount: Int): String =
+    when (fileCount) {
+        1 -> "Opening 1 GPX file..."
+        in 2..Int.MAX_VALUE -> "Opening $fileCount GPX files..."
+        else -> "Opening GPX files..."
+    }
