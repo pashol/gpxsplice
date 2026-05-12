@@ -74,6 +74,11 @@ class MainActivity : ComponentActivity() {
                 }
                 val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
                     if (uris.isEmpty()) return@rememberLauncherForActivityResult
+                    if (uris.size < 2) {
+                        mergeInputs = emptyList()
+                        errorMessage = "Choose at least 2 GPX files to merge"
+                        return@rememberLauncherForActivityResult
+                    }
                     lifecycleScope.launch {
                         isImportingMergeFiles = true
                         mergeImportCount = uris.size
@@ -288,4 +293,8 @@ internal fun formatImportErrorMessage(error: Throwable): String {
 }
 
 internal fun formatMergeImportProgressMessage(fileCount: Int): String =
-    if (fileCount > 0) "Opening $fileCount GPX files..." else "Opening GPX files..."
+    when (fileCount) {
+        1 -> "Opening 1 GPX file..."
+        in 2..Int.MAX_VALUE -> "Opening $fileCount GPX files..."
+        else -> "Opening GPX files..."
+    }
