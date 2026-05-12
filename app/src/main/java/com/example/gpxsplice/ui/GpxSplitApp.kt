@@ -1,6 +1,8 @@
 package com.example.gpxsplice.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,17 +13,18 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -39,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.GpxSplitter
@@ -52,9 +56,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpxSplitApp(
     document: GpxDocument?,
+    isImporting: Boolean,
+    importStatusMessage: String?,
     onPickFile: () -> Unit,
     onShareFiles: (List<SplitResult>) -> Unit,
     onShareZip: (List<SplitResult>) -> Unit,
@@ -84,6 +91,11 @@ fun GpxSplitApp(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.safeDrawing,
         containerColor = MaterialTheme.colorScheme.surface,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("GPX Splice") },
+            )
+        },
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -92,97 +104,123 @@ fun GpxSplitApp(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter,
         ) {
-            Column(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .sizeIn(maxWidth = 840.dp)
-                    .verticalScroll(rememberScrollState())
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .sizeIn(maxWidth = 840.dp),
             ) {
-                Text("GPX Splice", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    "Pick a GPX file, choose a split method, then export the generated stages.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(onClick = onPickFile) { Text("Choose GPX file") }
-                ErrorText(errorMessage)
-                ErrorText(localError)
-                ErrorText(inputError)
-
-                if (document != null) {
-                    Surface(
-                        tonalElevation = 1.dp,
-                        shape = MaterialTheme.shapes.medium,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Text(
-                                "Loaded ${document.orderedPoints().size} track points",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            SplitModeSelector(mode, onModeChange = { mode = it; results = emptyList() })
-                            OutlinedTextField(
-                                value = input,
-                                onValueChange = { input = it },
-                                label = { Text(inputLabel(mode)) },
-                                keyboardOptions = KeyboardOptions(keyboardType = keyboardTypeFor(mode)),
-                                isError = inputError != null,
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Button(
-                                enabled = splitOptions != null && !isSplitting,
-                                onClick = {
-                                    val currentOptions = splitOptions
-                                    if (currentOptions == null || isSplitting) return@Button
-
-                                    results = emptyList()
-                                    localError = null
-                                    isSplitting = true
-                                    splitJob = coroutineScope.launch {
-                                        try {
-                                            val splitResults = withContext(Dispatchers.Default) {
-                                                GpxSplitter.split(document, currentOptions)
-                                            }
-                                            localError = if (splitResults.size > 100) "Warning: this creates more than 100 files." else null
-                                            results = splitResults
-                                        } catch (error: CancellationException) {
-                                            throw error
-                                        } catch (error: Throwable) {
-                                            results = emptyList()
-                                            localError = error.message ?: "Could not split GPX file"
-                                        } finally {
-                                            isSplitting = false
-                                            splitJob = null
-                                        }
-                                    }
-                                },
-                            ) { Text(if (isSplitting) "Splitting..." else "Split") }
-                        }
+                val useVerticalExportActions = shouldUseVerticalExportActions(maxWidth)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        "Pick a GPX file, choose a split method, then export the generated stages.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = onPickFile, enabled = !isImporting) {
+                        Text(if (isImporting) "Opening GPX file..." else "Choose GPX file")
                     }
-                }
-
-                if (results.isNotEmpty()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("${results.size} output files", style = MaterialTheme.typography.titleMedium)
+                    AnimatedVisibility(visible = isImporting && importStatusMessage != null) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             Text(
-                                "${results.sumOf { it.pointCount }} total points",
+                                text = importStatusMessage.orEmpty(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-                    TrackPreviewCanvas(results = results, modifier = Modifier.fillMaxWidth().height(220.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { onShareFiles(results) }, modifier = Modifier.weight(1f)) { Text("Share GPX files") }
-                        Button(onClick = { onShareZip(results) }, modifier = Modifier.weight(1f)) { Text("Share ZIP") }
+                    ErrorText(errorMessage)
+                    ErrorText(localError)
+
+                    if (document != null) {
+                        Surface(
+                            tonalElevation = 1.dp,
+                            shape = MaterialTheme.shapes.medium,
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                Text(
+                                    "Loaded ${document.orderedPoints().size} track points",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                SplitModeSelector(mode, onModeChange = { mode = it; results = emptyList() })
+                                OutlinedTextField(
+                                    value = input,
+                                    onValueChange = { input = it },
+                                    label = { Text(inputLabel(mode)) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = keyboardTypeFor(mode)),
+                                    isError = inputError != null,
+                                    supportingText = {
+                                        inputError?.let { Text(it) }
+                                    },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Button(
+                                    enabled = splitOptions != null && !isSplitting,
+                                    onClick = {
+                                        val currentOptions = splitOptions
+                                        if (currentOptions == null || isSplitting) return@Button
+
+                                        results = emptyList()
+                                        localError = null
+                                        isSplitting = true
+                                        splitJob = coroutineScope.launch {
+                                            try {
+                                                val splitResults = withContext(Dispatchers.Default) {
+                                                    GpxSplitter.split(document, currentOptions)
+                                                }
+                                                localError = if (splitResults.size > 100) "Warning: this creates more than 100 files." else null
+                                                results = splitResults
+                                            } catch (error: CancellationException) {
+                                                throw error
+                                            } catch (error: Throwable) {
+                                                results = emptyList()
+                                                localError = error.message ?: "Could not split GPX file"
+                                            } finally {
+                                                isSplitting = false
+                                                splitJob = null
+                                            }
+                                        }
+                                    },
+                                ) { Text(if (isSplitting) "Splitting..." else "Split") }
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(visible = results.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text("${results.size} output files", style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        "${results.sumOf { it.pointCount }} total points",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            TrackPreviewCanvas(results = results, modifier = Modifier.fillMaxWidth().height(220.dp))
+                            if (useVerticalExportActions) {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Button(onClick = { onShareFiles(results) }, modifier = Modifier.fillMaxWidth()) { Text("Share GPX files") }
+                                    Button(onClick = { onShareZip(results) }, modifier = Modifier.fillMaxWidth()) { Text("Share ZIP") }
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Button(onClick = { onShareFiles(results) }, modifier = Modifier.weight(1f)) { Text("Share GPX files") }
+                                    Button(onClick = { onShareZip(results) }, modifier = Modifier.weight(1f)) { Text("Share ZIP") }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -241,6 +279,8 @@ private fun keyboardTypeFor(mode: SplitMode): KeyboardType = when (mode) {
     SplitMode.EQUAL_STAGES,
     -> KeyboardType.Number
 }
+
+internal fun shouldUseVerticalExportActions(maxWidth: Dp): Boolean = maxWidth < 600.dp
 
 private fun optionsFor(mode: SplitMode, input: String): SplitOptions = when (mode) {
     SplitMode.DISTANCE -> SplitOptions(mode = mode, distanceMeters = input.toDouble() * 1000.0)

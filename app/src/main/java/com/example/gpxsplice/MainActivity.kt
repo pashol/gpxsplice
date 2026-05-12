@@ -46,10 +46,15 @@ class MainActivity : ComponentActivity() {
                 var document by remember { mutableStateOf<GpxDocument?>(null) }
                 var inputFileName by remember { mutableStateOf<String?>(null) }
                 var errorMessage by remember { mutableStateOf<String?>(null) }
+                var isImporting by remember { mutableStateOf(false) }
+                var importFileName by remember { mutableStateOf<String?>(null) }
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                     if (uri == null) return@rememberLauncherForActivityResult
                     lifecycleScope.launch {
                         val selectedFileName = uri.displayName()
+                        isImporting = true
+                        importFileName = selectedFileName
+                        errorMessage = null
                         runCatchingPreservingCancellation {
                             withContext(Dispatchers.IO) {
                                 contentResolver.openInputStream(uri).use { input ->
@@ -65,13 +70,22 @@ class MainActivity : ComponentActivity() {
                             document = null
                             inputFileName = null
                             errorMessage = formatImportErrorMessage(it)
+                        }.also {
+                            isImporting = false
+                            importFileName = null
                         }
                     }
                 }
 
                 GpxSplitApp(
                     document = document,
-                    onPickFile = { picker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*")) },
+                    isImporting = isImporting,
+                    importStatusMessage = if (isImporting) formatImportProgressMessage(importFileName) else null,
+                    onPickFile = {
+                        if (!isImporting) {
+                            picker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*"))
+                        }
+                    },
                     onShareFiles = { results ->
                         lifecycleScope.launch {
                             runCatchingPreservingCancellation {
@@ -189,4 +203,9 @@ class MainActivity : ComponentActivity() {
 internal fun formatImportErrorMessage(error: Throwable): String {
     val detail = error.message?.trim()?.takeIf(String::isNotEmpty) ?: return "Could not read GPX file"
     return "Could not read GPX file: $detail"
+}
+
+internal fun formatImportProgressMessage(fileName: String?): String {
+    val trimmedFileName = fileName?.trim()?.takeIf(String::isNotEmpty) ?: return "Opening GPX file..."
+    return "Opening $trimmedFileName..."
 }

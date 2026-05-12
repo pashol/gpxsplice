@@ -5,6 +5,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -15,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 private val LightColors = lightColorScheme()
 private val DarkColors = darkColorScheme()
 private val AppShapes = Shapes()
+private val AppTypography = Typography()
 
 fun shouldUseDynamicColor(dynamicColorEnabled: Boolean, sdkInt: Int): Boolean {
     return dynamicColorEnabled && sdkInt >= Build.VERSION_CODES.S
@@ -42,6 +44,7 @@ fun GpxSpliceTheme(
 ) {
     MaterialTheme(
         colorScheme = gpxSpliceColorScheme(darkTheme = darkTheme, dynamicColorEnabled = dynamicColorEnabled),
+        typography = AppTypography,
         shapes = AppShapes,
         content = content,
     )
