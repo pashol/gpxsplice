@@ -95,6 +95,8 @@ fun GpxSplitApp(
     }
 
     LaunchedEffect(mergeInputs) {
+        mergeJob = cancelAndClearMergeJob(mergeJob)
+        isMerging = false
         val orderingResult = orderMergeInputs(mergeInputs)
         orderedMergeInputs = orderingResult.items
         mergeOrderingMessage = orderingResult.message
@@ -181,6 +183,8 @@ fun GpxSplitApp(
                         mergedDocument = mergedDocument,
                         onPickMergeFiles = onPickMergeFiles,
                         onMoveMergeInput = { index, direction ->
+                            mergeJob = cancelAndClearMergeJob(mergeJob)
+                            isMerging = false
                             orderedMergeInputs = moveMergeInput(orderedMergeInputs, index, direction)
                             mergeOrderingMessage = null
                             mergedDocument = null
@@ -231,7 +235,7 @@ private fun WorkflowSelector(workflow: Workflow, onWorkflowChange: (Workflow) ->
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = workflow == candidate, onClick = { onWorkflowChange(candidate) })
+                RadioButton(selected = workflow == candidate, onClick = null)
                 Text(candidate.label(), style = MaterialTheme.typography.bodyLarge)
             }
         }
@@ -417,7 +421,7 @@ private fun SplitModeSelector(mode: SplitMode, onModeChange: (SplitMode) -> Unit
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = mode == candidate, onClick = { onModeChange(candidate) })
+                RadioButton(selected = mode == candidate, onClick = null)
                 Text(candidate.label(), style = MaterialTheme.typography.bodyLarge)
             }
         }
@@ -471,6 +475,11 @@ private fun optionsFor(mode: SplitMode, input: String): SplitOptions = when (mod
 }
 
 internal fun shouldUseVerticalExportActions(maxWidth: Dp): Boolean = maxWidth < 600.dp
+
+internal fun cancelAndClearMergeJob(job: Job?): Job? {
+    job?.cancel()
+    return null
+}
 
 internal fun mergedPreviewResult(document: GpxDocument): SplitResult =
     SplitResult(

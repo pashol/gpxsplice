@@ -5,8 +5,10 @@ import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.Track
 import com.example.gpxsplice.domain.TrackPoint
 import com.example.gpxsplice.domain.TrackSegment
+import kotlinx.coroutines.Job
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,5 +46,15 @@ class GpxSplitLayoutTest {
         assertSame(document, result.document)
         assertEquals(2, result.pointCount)
         assertEquals(0.0, result.distanceMeters, 0.0)
+    }
+
+    @Test
+    fun cancelAndClearMergeJobCancelsRunningMergeWork() {
+        val job = Job()
+
+        val clearedJob = cancelAndClearMergeJob(job)
+
+        assertTrue(job.isCancelled)
+        assertNull(clearedJob)
     }
 }
