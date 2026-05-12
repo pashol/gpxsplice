@@ -1,10 +1,9 @@
 package com.example.gpxsplice.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -18,10 +17,11 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -35,12 +35,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.gpxsplice.domain.GpxDocument
+import com.example.gpxsplice.domain.GpxMerger
 import com.example.gpxsplice.domain.GpxSplitter
 import com.example.gpxsplice.domain.SplitMode
 import com.example.gpxsplice.domain.SplitOptions
@@ -59,14 +61,26 @@ fun GpxSplitApp(
     onShareFiles: (List<SplitResult>) -> Unit,
     onShareZip: (List<SplitResult>) -> Unit,
     errorMessage: String?,
+    mergeInputs: List<MergeInput> = emptyList(),
+    isImportingMergeFiles: Boolean = false,
+    mergeImportStatusMessage: String? = null,
+    onPickMergeFiles: () -> Unit = {},
+    onShareMergedFile: (GpxDocument, String?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
+    var workflow by remember { mutableStateOf(Workflow.SPLIT) }
     var mode by remember { mutableStateOf(SplitMode.DISTANCE) }
     var input by remember { mutableStateOf("5") }
     var results by remember { mutableStateOf<List<SplitResult>>(emptyList()) }
     var localError by remember { mutableStateOf<String?>(null) }
     var isSplitting by remember { mutableStateOf(false) }
     var splitJob by remember { mutableStateOf<Job?>(null) }
+    var orderedMergeInputs by remember { mutableStateOf<List<MergeInput>>(emptyList()) }
+    var mergeOrderingMessage by remember { mutableStateOf<String?>(null) }
+    var mergedDocument by remember { mutableStateOf<GpxDocument?>(null) }
+    var mergeError by remember { mutableStateOf<String?>(null) }
+    var isMerging by remember { mutableStateOf(false) }
+    var mergeJob by remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val optionsResult = remember(mode, input) { runCatching { optionsFor(mode, input) } }
     val splitOptions = optionsResult.getOrNull()
@@ -78,6 +92,14 @@ fun GpxSplitApp(
         isSplitting = false
         results = emptyList()
         localError = null
+    }
+
+    LaunchedEffect(mergeInputs) {
+        val orderingResult = orderMergeInputs(mergeInputs)
+        orderedMergeInputs = orderingResult.items
+        mergeOrderingMessage = orderingResult.message
+        mergedDocument = null
+        mergeError = null
     }
 
     Scaffold(
@@ -103,90 +125,280 @@ fun GpxSplitApp(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text("GPX Splice", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    "Pick a GPX file, choose a split method, then export the generated stages.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(onClick = onPickFile) { Text("Choose GPX file") }
+                WorkflowSelector(workflow, onWorkflowChange = { workflow = it })
                 ErrorText(errorMessage)
-                ErrorText(localError)
-                ErrorText(inputError)
 
-                if (document != null) {
-                    Surface(
-                        tonalElevation = 1.dp,
-                        shape = MaterialTheme.shapes.medium,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Text(
-                                "Loaded ${document.orderedPoints().size} track points",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            SplitModeSelector(mode, onModeChange = { mode = it; results = emptyList() })
-                            OutlinedTextField(
-                                value = input,
-                                onValueChange = { input = it },
-                                label = { Text(inputLabel(mode)) },
-                                keyboardOptions = KeyboardOptions(keyboardType = keyboardTypeFor(mode)),
-                                isError = inputError != null,
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Button(
-                                enabled = splitOptions != null && !isSplitting,
-                                onClick = {
-                                    val currentOptions = splitOptions
-                                    if (currentOptions == null || isSplitting) return@Button
+                when (workflow) {
+                    Workflow.SPLIT -> SplitWorkflow(
+                        document = document,
+                        onPickFile = onPickFile,
+                        localError = localError,
+                        inputError = inputError,
+                        mode = mode,
+                        onModeChange = { mode = it; results = emptyList() },
+                        input = input,
+                        onInputChange = { input = it },
+                        splitOptions = splitOptions,
+                        isSplitting = isSplitting,
+                        results = results,
+                        onSplit = {
+                            val currentDocument = document ?: return@SplitWorkflow
+                            val currentOptions = splitOptions ?: return@SplitWorkflow
+                            if (isSplitting) return@SplitWorkflow
 
-                                    results = emptyList()
-                                    localError = null
-                                    isSplitting = true
-                                    splitJob = coroutineScope.launch {
-                                        try {
-                                            val splitResults = withContext(Dispatchers.Default) {
-                                                GpxSplitter.split(document, currentOptions)
-                                            }
-                                            localError = if (splitResults.size > 100) "Warning: this creates more than 100 files." else null
-                                            results = splitResults
-                                        } catch (error: CancellationException) {
-                                            throw error
-                                        } catch (error: Throwable) {
-                                            results = emptyList()
-                                            localError = error.message ?: "Could not split GPX file"
-                                        } finally {
-                                            isSplitting = false
-                                            splitJob = null
-                                        }
+                            results = emptyList()
+                            localError = null
+                            isSplitting = true
+                            splitJob = coroutineScope.launch {
+                                try {
+                                    val splitResults = withContext(Dispatchers.Default) {
+                                        GpxSplitter.split(currentDocument, currentOptions)
                                     }
-                                },
-                            ) { Text(if (isSplitting) "Splitting..." else "Split") }
-                        }
-                    }
-                }
+                                    localError = if (splitResults.size > 100) "Warning: this creates more than 100 files." else null
+                                    results = splitResults
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Throwable) {
+                                    results = emptyList()
+                                    localError = error.message ?: "Could not split GPX file"
+                                } finally {
+                                    isSplitting = false
+                                    splitJob = null
+                                }
+                            }
+                        },
+                        onShareFiles = onShareFiles,
+                        onShareZip = onShareZip,
+                    )
 
-                if (results.isNotEmpty()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("${results.size} output files", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "${results.sumOf { it.pointCount }} total points",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    TrackPreviewCanvas(results = results, modifier = Modifier.fillMaxWidth().height(220.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { onShareFiles(results) }, modifier = Modifier.weight(1f)) { Text("Share GPX files") }
-                        Button(onClick = { onShareZip(results) }, modifier = Modifier.weight(1f)) { Text("Share ZIP") }
-                    }
+                    Workflow.MERGE -> MergeWorkflow(
+                        orderedMergeInputs = orderedMergeInputs,
+                        isImportingMergeFiles = isImportingMergeFiles,
+                        mergeImportStatusMessage = mergeImportStatusMessage,
+                        mergeOrderingMessage = mergeOrderingMessage,
+                        mergeError = mergeError,
+                        isMerging = isMerging,
+                        mergedDocument = mergedDocument,
+                        onPickMergeFiles = onPickMergeFiles,
+                        onMoveMergeInput = { index, direction ->
+                            orderedMergeInputs = moveMergeInput(orderedMergeInputs, index, direction)
+                            mergeOrderingMessage = null
+                            mergedDocument = null
+                            mergeError = null
+                        },
+                        onMerge = {
+                            if (!canMerge(orderedMergeInputs) || isMerging) return@MergeWorkflow
+
+                            val documents = orderedMergeInputs.map { it.document }
+                            mergedDocument = null
+                            mergeError = null
+                            isMerging = true
+                            mergeJob = coroutineScope.launch {
+                                try {
+                                    mergedDocument = withContext(Dispatchers.Default) {
+                                        GpxMerger.merge(documents)
+                                    }
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Throwable) {
+                                    mergedDocument = null
+                                    mergeError = error.message?.trim()?.takeIf(String::isNotEmpty) ?: "Could not merge GPX files"
+                                } finally {
+                                    isMerging = false
+                                    mergeJob = null
+                                }
+                            }
+                        },
+                        onShareMergedFile = { merged -> onShareMergedFile(merged, orderedMergeInputs.firstOrNull()?.fileName) },
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WorkflowSelector(workflow: Workflow, onWorkflowChange: (Workflow) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Workflow.entries.forEach { candidate ->
+            Row(
+                modifier = Modifier
+                    .selectable(
+                        selected = workflow == candidate,
+                        onClick = { onWorkflowChange(candidate) },
+                        role = Role.RadioButton,
+                    )
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = workflow == candidate, onClick = { onWorkflowChange(candidate) })
+                Text(candidate.label(), style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SplitWorkflow(
+    document: GpxDocument?,
+    onPickFile: () -> Unit,
+    localError: String?,
+    inputError: String?,
+    mode: SplitMode,
+    onModeChange: (SplitMode) -> Unit,
+    input: String,
+    onInputChange: (String) -> Unit,
+    splitOptions: SplitOptions?,
+    isSplitting: Boolean,
+    results: List<SplitResult>,
+    onSplit: () -> Unit,
+    onShareFiles: (List<SplitResult>) -> Unit,
+    onShareZip: (List<SplitResult>) -> Unit,
+) {
+    Text(
+        "Pick a GPX file, choose a split method, then export the generated stages.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Button(onClick = onPickFile) { Text("Choose GPX file") }
+    ErrorText(localError)
+    ErrorText(inputError)
+
+    if (document != null) {
+        Surface(
+            tonalElevation = 1.dp,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    "Loaded ${document.orderedPoints().size} track points",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                SplitModeSelector(mode, onModeChange = onModeChange)
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = onInputChange,
+                    label = { Text(inputLabel(mode)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboardTypeFor(mode)),
+                    isError = inputError != null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(
+                    enabled = splitOptions != null && !isSplitting,
+                    onClick = onSplit,
+                ) { Text(if (isSplitting) "Splitting..." else "Split") }
+            }
+        }
+    }
+
+    if (results.isNotEmpty()) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("${results.size} output files", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${results.sumOf { it.pointCount }} total points",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        TrackPreviewCanvas(results = results, modifier = Modifier.fillMaxWidth().height(220.dp))
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            if (shouldUseVerticalExportActions(maxWidth)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { onShareFiles(results) }, modifier = Modifier.fillMaxWidth()) { Text("Share GPX files") }
+                    Button(onClick = { onShareZip(results) }, modifier = Modifier.fillMaxWidth()) { Text("Share ZIP") }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { onShareFiles(results) }, modifier = Modifier.weight(1f)) { Text("Share GPX files") }
+                    Button(onClick = { onShareZip(results) }, modifier = Modifier.weight(1f)) { Text("Share ZIP") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MergeWorkflow(
+    orderedMergeInputs: List<MergeInput>,
+    isImportingMergeFiles: Boolean,
+    mergeImportStatusMessage: String?,
+    mergeOrderingMessage: String?,
+    mergeError: String?,
+    isMerging: Boolean,
+    mergedDocument: GpxDocument?,
+    onPickMergeFiles: () -> Unit,
+    onMoveMergeInput: (Int, MergeMoveDirection) -> Unit,
+    onMerge: () -> Unit,
+    onShareMergedFile: (GpxDocument) -> Unit,
+) {
+    Text(
+        "Choose 2 or more GPX files, review their order, then export one merged GPX.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Button(enabled = !isImportingMergeFiles, onClick = onPickMergeFiles) { Text("Choose GPX files") }
+    if (isImportingMergeFiles) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        mergeImportStatusMessage?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    mergeOrderingMessage?.let {
+        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    ErrorText(mergeError)
+
+    orderedMergeInputs.forEachIndexed { index, item ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(item.fileName, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${item.pointCount} track points",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        enabled = index > 0,
+                        onClick = { onMoveMergeInput(index, MergeMoveDirection.UP) },
+                    ) { Text("Up") }
+                    Button(
+                        enabled = index < orderedMergeInputs.lastIndex,
+                        onClick = { onMoveMergeInput(index, MergeMoveDirection.DOWN) },
+                    ) { Text("Down") }
+                }
+            }
+        }
+    }
+
+    Button(
+        enabled = canMerge(orderedMergeInputs) && !isMerging,
+        onClick = onMerge,
+    ) { Text(if (isMerging) "Merging..." else "Merge") }
+
+    mergedDocument?.let { merged ->
+        val previewResult = mergedPreviewResult(merged)
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Merged GPX ready", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${previewResult.pointCount} total points",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        TrackPreviewCanvas(results = listOf(previewResult), modifier = Modifier.fillMaxWidth().height(220.dp))
+        Button(onClick = { onShareMergedFile(merged) }, modifier = Modifier.fillMaxWidth()) { Text("Share merged GPX") }
     }
 }
 
@@ -223,6 +435,16 @@ private fun ErrorText(message: String?) {
     }
 }
 
+private enum class Workflow {
+    SPLIT,
+    MERGE,
+}
+
+private fun Workflow.label(): String = when (this) {
+    Workflow.SPLIT -> "Split"
+    Workflow.MERGE -> "Merge"
+}
+
 private fun SplitMode.label(): String = when (this) {
     SplitMode.DISTANCE -> "Distance"
     SplitMode.MAX_POINTS -> "Max points"
@@ -247,3 +469,13 @@ private fun optionsFor(mode: SplitMode, input: String): SplitOptions = when (mod
     SplitMode.MAX_POINTS -> SplitOptions(mode = mode, maxPoints = input.toInt())
     SplitMode.EQUAL_STAGES -> SplitOptions(mode = mode, stages = input.toInt())
 }
+
+internal fun shouldUseVerticalExportActions(maxWidth: Dp): Boolean = maxWidth < 600.dp
+
+internal fun mergedPreviewResult(document: GpxDocument): SplitResult =
+    SplitResult(
+        index = 1,
+        document = document,
+        pointCount = document.orderedPoints().size,
+        distanceMeters = 0.0,
+    )
