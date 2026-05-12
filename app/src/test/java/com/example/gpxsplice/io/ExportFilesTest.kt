@@ -94,6 +94,17 @@ class ExportFilesTest {
     }
 
     @Test
+    fun exportFileEqualityUsesByteContent() {
+        val file = ExportFile("part.gpx", byteArrayOf(1, 2, 3))
+        val sameContent = ExportFile("part.gpx", byteArrayOf(1, 2, 3))
+        val differentContent = ExportFile("part.gpx", byteArrayOf(1, 2, 4))
+
+        assertEquals(file, sameContent)
+        assertEquals(file.hashCode(), sameContent.hashCode())
+        assertFalse(file == differentContent)
+    }
+
+    @Test
     fun zipExporterRejectsUnsafeNames() {
         unsafeExportFiles().forEach { file ->
             assertRejectsIllegalArgument(file.fileName) {

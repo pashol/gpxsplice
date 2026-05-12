@@ -7,10 +7,18 @@ import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-data class ExportFile(
+class ExportFile(
     val fileName: String,
     val bytes: ByteArray,
-)
+) {
+    override fun equals(other: Any?): Boolean =
+        this === other ||
+            other is ExportFile &&
+            fileName == other.fileName &&
+            bytes.contentEquals(other.bytes)
+
+    override fun hashCode(): Int = 31 * fileName.hashCode() + bytes.contentHashCode()
+}
 
 object ExportBuilder {
     fun gpxFiles(results: List<SplitResult>, inputFileName: String? = null): List<ExportFile> = results.map { result ->
