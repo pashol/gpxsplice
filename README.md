@@ -60,9 +60,9 @@ app/src/main/java/com/example/gpxsplice/
 
 Unit tests cover:
 - Domain logic for splitting and merging (`DistanceTest`, `GpxSplitterTest`, `GpxMergerTest`)
-- GPX I/O (`GpxReaderTest`, `GpxReaderWriterTest`, `ExportFilesTest`)
+- GPX I/O (`GpxReaderWriterTest`, `ExportFilesTest`)
 - UI components and merge UI state (`TrackPreviewCanvasTest`, `GpxMergeModelsTest`, `GpxSplitLayoutTest`, `AppThemeTest`)
-- Error handling (`ImportErrorFormatterTest`, `MainActivityTest`)
+- Activity formatting and helpers (`MainActivityTest`)
 
 ## Splitting Modes
 
