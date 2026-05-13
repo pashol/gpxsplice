@@ -57,4 +57,11 @@ class GpxSplitLayoutTest {
         assertTrue(job.isCancelled)
         assertNull(clearedJob)
     }
+
+    @Test
+    fun mergeReorderHintAppearsOnlyWhenFilesCanBeReordered() {
+        assertNull(mergeReorderHint(fileCount = 0))
+        assertNull(mergeReorderHint(fileCount = 1))
+        assertEquals("Long-press and drag cards to rearrange files.", mergeReorderHint(fileCount = 2))
+    }
 }

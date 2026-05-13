@@ -50,6 +50,20 @@ app/src/main/java/com/example/gpxsplice/
 > ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:assembleDebug
 > ```
 
+## Install
+
+Check that a device is connected and authorized:
+
+```bash
+/home/pascal/Android/Sdk/platform-tools/adb devices
+```
+
+Install the debug APK:
+
+```bash
+/home/pascal/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Test
 
 ```bash

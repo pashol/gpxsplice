@@ -93,12 +93,27 @@ class GpxMergeModelsTest {
     }
 
     @Test
+    fun moveMergeInputToIndexReordersDraggedItem() {
+        val first = mergeInput("first.gpx", listOf("2026-05-01T10:00:00Z"))
+        val second = mergeInput("second.gpx", listOf("2026-05-02T10:00:00Z"))
+        val third = mergeInput("third.gpx", listOf("2026-05-03T10:00:00Z"))
+        val fourth = mergeInput("fourth.gpx", listOf("2026-05-04T10:00:00Z"))
+
+        val movedDown = moveMergeInput(listOf(first, second, third, fourth), fromIndex = 0, toIndex = 2)
+        val movedUp = moveMergeInput(movedDown, fromIndex = 3, toIndex = 1)
+
+        assertEquals(listOf("second.gpx", "third.gpx", "first.gpx", "fourth.gpx"), movedDown.map { it.fileName })
+        assertEquals(listOf("second.gpx", "fourth.gpx", "third.gpx", "first.gpx"), movedUp.map { it.fileName })
+    }
+
+    @Test
     fun moveMergeInputIgnoresOutOfRangeMoves() {
         val first = mergeInput("first.gpx", listOf("2026-05-01T10:00:00Z"))
         val second = mergeInput("second.gpx", listOf("2026-05-02T10:00:00Z"))
 
         assertEquals(listOf(first, second), moveMergeInput(listOf(first, second), 0, MergeMoveDirection.UP))
         assertEquals(listOf(first, second), moveMergeInput(listOf(first, second), 1, MergeMoveDirection.DOWN))
+        assertEquals(listOf(first, second), moveMergeInput(listOf(first, second), fromIndex = 0, toIndex = 2))
     }
 
     @Test

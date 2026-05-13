@@ -68,6 +68,10 @@ fun moveMergeInput(items: List<MergeInput>, fromIndex: Int, direction: MergeMove
         MergeMoveDirection.UP -> fromIndex - 1
         MergeMoveDirection.DOWN -> fromIndex + 1
     }
+    return moveMergeInput(items, fromIndex, toIndex)
+}
+
+fun moveMergeInput(items: List<MergeInput>, fromIndex: Int, toIndex: Int): List<MergeInput> {
     if (fromIndex !in items.indices || toIndex !in items.indices) return items
 
     return items.toMutableList().apply {

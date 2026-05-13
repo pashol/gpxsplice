@@ -1,6 +1,7 @@
 package com.example.gpxsplice.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -32,16 +33,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.example.gpxsplice.domain.GpxDocument
 import com.example.gpxsplice.domain.GpxMerger
 import com.example.gpxsplice.domain.GpxSplitter
@@ -203,6 +211,15 @@ fun GpxSplitApp(
                                 mergeJob = cancelAndClearMergeJob(mergeJob)
                                 isMerging = false
                                 orderedMergeInputs = moveMergeInput(orderedMergeInputs, index, direction)
+                                mergeOrderingMessage = null
+                                mergedDocument = null
+                                mergeError = null
+                            },
+                            onReorderMergeInput = { fromIndex, toIndex ->
+                                if (fromIndex == toIndex) return@MergeWorkflow
+                                mergeJob = cancelAndClearMergeJob(mergeJob)
+                                isMerging = false
+                                orderedMergeInputs = moveMergeInput(orderedMergeInputs, fromIndex, toIndex)
                                 mergeOrderingMessage = null
                                 mergedDocument = null
                                 mergeError = null
@@ -373,9 +390,14 @@ private fun MergeWorkflow(
     mergedDocument: GpxDocument?,
     onPickMergeFiles: () -> Unit,
     onMoveMergeInput: (Int, MergeMoveDirection) -> Unit,
+    onReorderMergeInput: (Int, Int) -> Unit,
     onMerge: () -> Unit,
     onShareMergedFile: (GpxDocument) -> Unit,
 ) {
+    val itemPositions = remember { mutableStateMapOf<Int, MergeItemPosition>() }
+    var draggedIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+
     Text(
         "Choose 2 or more GPX files, review their order, then export one merged GPX.",
         style = MaterialTheme.typography.bodyMedium,
@@ -393,8 +415,58 @@ private fun MergeWorkflow(
     }
     ErrorText(mergeError)
 
+    mergeReorderHint(orderedMergeInputs.size)?.let {
+        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
     orderedMergeInputs.forEachIndexed { index, item ->
-        Card(modifier = Modifier.fillMaxWidth()) {
+        val isDragged = draggedIndex == index
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .zIndex(if (isDragged) 1f else 0f)
+                .graphicsLayer { translationY = if (isDragged) dragOffsetY else 0f }
+                .onGloballyPositioned { coordinates ->
+                    val position = coordinates.positionInRoot()
+                    itemPositions[index] = MergeItemPosition(
+                        top = position.y,
+                        bottom = position.y + coordinates.size.height,
+                    )
+                }
+                .pointerInput(index, orderedMergeInputs.size) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            draggedIndex = index
+                            dragOffsetY = 0f
+                        },
+                        onDragCancel = {
+                            draggedIndex = null
+                            dragOffsetY = 0f
+                        },
+                        onDragEnd = {
+                            draggedIndex = null
+                            dragOffsetY = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            val currentIndex = draggedIndex ?: return@detectDragGesturesAfterLongPress
+                            dragOffsetY += dragAmount.y
+                            val draggedPosition = itemPositions[currentIndex] ?: return@detectDragGesturesAfterLongPress
+                            val draggedCenterY = draggedPosition.centerY + dragOffsetY
+                            val targetIndex = itemPositions
+                                .minByOrNull { (_, position) -> kotlin.math.abs(position.centerY - draggedCenterY) }
+                                ?.key
+                                ?: return@detectDragGesturesAfterLongPress
+
+                            if (targetIndex != currentIndex) {
+                                onReorderMergeInput(currentIndex, targetIndex)
+                                draggedIndex = targetIndex
+                                dragOffsetY = 0f
+                            }
+                        },
+                    )
+                },
+        ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -514,6 +586,16 @@ internal fun shouldUseVerticalExportActions(maxWidth: Dp): Boolean = maxWidth < 
 internal fun cancelAndClearMergeJob(job: Job?): Job? {
     job?.cancel()
     return null
+}
+
+internal fun mergeReorderHint(fileCount: Int): String? =
+    if (fileCount > 1) "Long-press and drag cards to rearrange files." else null
+
+private data class MergeItemPosition(
+    val top: Float,
+    val bottom: Float,
+) {
+    val centerY: Float = (top + bottom) / 2f
 }
 
 internal fun mergedPreviewResult(document: GpxDocument): SplitResult =
