@@ -7,6 +7,7 @@ Native Android GPX splitter inspired by GPXto GPX Split.
 - Pick a GPX file from Android storage.
 - Split tracks by distance, maximum points, or equal stages.
 - Pick multiple GPX files and merge them into one GPX file.
+- Reorder merge inputs with buttons or long-press drag before exporting.
 - Preview split or merged tracks offline with colored line segments.
 - Share generated GPX files, a ZIP of split files, or one merged GPX file through Android share sheet.
 
@@ -51,6 +52,8 @@ app/src/main/java/com/example/gpxsplice/
 > ```
 
 ## Install
+
+Download the latest APK from the [GitHub releases page](https://github.com/pashol/gpxsplice/releases/latest), or build it locally with the command above.
 
 Check that a device is connected and authorized:
 
