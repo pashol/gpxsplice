@@ -3,7 +3,7 @@ package com.example.gpxsplice.io
 import com.example.gpxsplice.domain.GpxDocument
 
 object GpxWriter {
-    fun write(document: GpxDocument): String {
+    fun write(document: GpxDocument, sanitize: Boolean = false): String {
         val xml = StringBuilder()
         xml.appendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         xml.appendLine("<gpx version=\"1.1\" creator=\"gpxsplice\" xmlns=\"http://www.topografix.com/GPX/1/1\">")
@@ -18,13 +18,14 @@ object GpxWriter {
                 xml.appendLine("    <trkseg>")
 
                 for (point in segment.points) {
+                    val time = point.time.takeUnless { sanitize }
                     xml.append("      <trkpt lat=\"${point.latitude}\" lon=\"${point.longitude}\"")
-                    if (point.elevationMeters == null && point.time == null) {
+                    if (point.elevationMeters == null && time == null) {
                         xml.appendLine(" />")
                     } else {
                         xml.append('>')
                         point.elevationMeters?.let { xml.append("<ele>$it</ele>") }
-                        point.time?.let { xml.append("<time>${it.escapeXml()}</time>") }
+                        time?.let { xml.append("<time>${it.escapeXml()}</time>") }
                         xml.appendLine("</trkpt>")
                     }
                 }

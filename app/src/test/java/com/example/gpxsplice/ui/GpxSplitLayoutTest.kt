@@ -64,4 +64,12 @@ class GpxSplitLayoutTest {
         assertNull(mergeReorderHint(fileCount = 1))
         assertEquals("Long-press and drag cards to rearrange files.", mergeReorderHint(fileCount = 2))
     }
+
+    @Test
+    fun sanitizeExportHelpTextExplainsOptionalTimestampRemoval() {
+        assertEquals(
+            "Optional: remove time tags before sharing. Point order, coordinates, and elevation stay unchanged.",
+            sanitizeExportHelpText(),
+        )
+    }
 }

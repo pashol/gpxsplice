@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -70,26 +71,28 @@ fun GpxSplitApp(
     isImporting: Boolean,
     importStatusMessage: String?,
     onPickFile: () -> Unit,
-    onShareFiles: (List<SplitResult>) -> Unit,
-    onShareZip: (List<SplitResult>) -> Unit,
+    onShareFiles: (List<SplitResult>, Boolean) -> Unit,
+    onShareZip: (List<SplitResult>, Boolean) -> Unit,
     errorMessage: String?,
     mergeInputs: List<MergeInput> = emptyList(),
     isImportingMergeFiles: Boolean = false,
     mergeImportStatusMessage: String? = null,
     onPickMergeFiles: () -> Unit = {},
-    onShareMergedFile: (GpxDocument, String?) -> Unit = { _, _ -> },
+    onShareMergedFile: (GpxDocument, String?, Boolean) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     var workflow by remember { mutableStateOf(Workflow.SPLIT) }
     var mode by remember { mutableStateOf(SplitMode.DISTANCE) }
     var input by remember { mutableStateOf("5") }
     var results by remember { mutableStateOf<List<SplitResult>>(emptyList()) }
+    var sanitizeSplitExport by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
     var isSplitting by remember { mutableStateOf(false) }
     var splitJob by remember { mutableStateOf<Job?>(null) }
     var orderedMergeInputs by remember { mutableStateOf<List<MergeInput>>(emptyList()) }
     var mergeOrderingMessage by remember { mutableStateOf<String?>(null) }
     var mergedDocument by remember { mutableStateOf<GpxDocument?>(null) }
+    var sanitizeMergeExport by remember { mutableStateOf(false) }
     var mergeError by remember { mutableStateOf<String?>(null) }
     var isMerging by remember { mutableStateOf(false) }
     var mergeJob by remember { mutableStateOf<Job?>(null) }
@@ -133,7 +136,7 @@ fun GpxSplitApp(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter,
         ) {
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .sizeIn(maxWidth = 840.dp),
@@ -168,6 +171,8 @@ fun GpxSplitApp(
                             splitOptions = splitOptions,
                             isSplitting = isSplitting,
                             results = results,
+                            sanitizeExport = sanitizeSplitExport,
+                            onSanitizeExportChange = { sanitizeSplitExport = it },
                             onSplit = {
                                 val currentDocument = document ?: return@SplitWorkflow
                                 val currentOptions = splitOptions ?: return@SplitWorkflow
@@ -194,8 +199,8 @@ fun GpxSplitApp(
                                     }
                                 }
                             },
-                            onShareFiles = onShareFiles,
-                            onShareZip = onShareZip,
+                            onShareFiles = { shareResults -> onShareFiles(shareResults, sanitizeSplitExport) },
+                            onShareZip = { shareResults -> onShareZip(shareResults, sanitizeSplitExport) },
                         )
 
                         Workflow.MERGE -> MergeWorkflow(
@@ -206,6 +211,8 @@ fun GpxSplitApp(
                             mergeError = mergeError,
                             isMerging = isMerging,
                             mergedDocument = mergedDocument,
+                            sanitizeExport = sanitizeMergeExport,
+                            onSanitizeExportChange = { sanitizeMergeExport = it },
                             onPickMergeFiles = onPickMergeFiles,
                             onMoveMergeInput = { index, direction ->
                                 mergeJob = cancelAndClearMergeJob(mergeJob)
@@ -247,7 +254,9 @@ fun GpxSplitApp(
                                     }
                                 }
                             },
-                            onShareMergedFile = { merged -> onShareMergedFile(merged, orderedMergeInputs.firstOrNull()?.fileName) },
+                            onShareMergedFile = { merged ->
+                                onShareMergedFile(merged, orderedMergeInputs.firstOrNull()?.fileName, sanitizeMergeExport)
+                            },
                         )
                     }
                 }
@@ -292,6 +301,8 @@ private fun SplitWorkflow(
     splitOptions: SplitOptions?,
     isSplitting: Boolean,
     results: List<SplitResult>,
+    sanitizeExport: Boolean,
+    onSanitizeExportChange: (Boolean) -> Unit,
     onSplit: () -> Unit,
     onShareFiles: (List<SplitResult>) -> Unit,
     onShareZip: (List<SplitResult>) -> Unit,
@@ -363,6 +374,10 @@ private fun SplitWorkflow(
             }
         }
         TrackPreviewCanvas(results = results, modifier = Modifier.fillMaxWidth().height(220.dp))
+        SanitizeExportOption(
+            checked = sanitizeExport,
+            onCheckedChange = onSanitizeExportChange,
+        )
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             if (shouldUseVerticalExportActions(maxWidth)) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -388,6 +403,8 @@ private fun MergeWorkflow(
     mergeError: String?,
     isMerging: Boolean,
     mergedDocument: GpxDocument?,
+    sanitizeExport: Boolean,
+    onSanitizeExportChange: (Boolean) -> Unit,
     onPickMergeFiles: () -> Unit,
     onMoveMergeInput: (Int, MergeMoveDirection) -> Unit,
     onReorderMergeInput: (Int, Int) -> Unit,
@@ -509,6 +526,10 @@ private fun MergeWorkflow(
             }
         }
         TrackPreviewCanvas(results = listOf(previewResult), modifier = Modifier.fillMaxWidth().height(220.dp))
+        SanitizeExportOption(
+            checked = sanitizeExport,
+            onCheckedChange = onSanitizeExportChange,
+        )
         Button(onClick = { onShareMergedFile(merged) }, modifier = Modifier.fillMaxWidth()) { Text("Share merged GPX") }
     }
 }
@@ -542,6 +563,31 @@ private fun ErrorText(message: String?) {
             text = it,
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun SanitizeExportOption(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = checked,
+                    onClick = { onCheckedChange(!checked) },
+                    role = Role.Checkbox,
+                )
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = checked, onCheckedChange = null)
+            Text("Remove time tags from export", style = MaterialTheme.typography.bodyLarge)
+        }
+        Text(
+            text = sanitizeExportHelpText(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -590,6 +636,9 @@ internal fun cancelAndClearMergeJob(job: Job?): Job? {
 
 internal fun mergeReorderHint(fileCount: Int): String? =
     if (fileCount > 1) "Long-press and drag cards to rearrange files." else null
+
+internal fun sanitizeExportHelpText(): String =
+    "Optional: remove time tags before sharing. Point order, coordinates, and elevation stay unchanged."
 
 private data class MergeItemPosition(
     val top: Float,

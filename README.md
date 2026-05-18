@@ -10,6 +10,7 @@ Native Android GPX splitter inspired by GPXto GPX Split.
 - Reorder merge inputs with buttons or long-press drag before exporting.
 - Preview split or merged tracks offline with colored line segments.
 - Share generated GPX files, a ZIP of split files, or one merged GPX file through Android share sheet.
+- Optionally remove GPX point timestamps from split or merged exports before sharing.
 
 ## Tech Stack
 
@@ -96,3 +97,5 @@ After splitting, you can share the results as:
 - **ZIP archive** — all stages packed into a single `.zip` file
 
 After merging, you can share one combined `.gpx` file. Exported files are shared via the Android share sheet using `FileProvider`.
+
+Exported GPX files preserve point timestamps by default. Enable the sanitize option to remove `<time>` values while keeping point order, coordinates, and elevation.

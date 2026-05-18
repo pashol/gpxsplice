@@ -29,8 +29,8 @@ fun gpxSpliceColorScheme(
 ): ColorScheme {
     val context = LocalContext.current
     return when {
-        shouldUseDynamicColor(dynamicColorEnabled, Build.VERSION.SDK_INT) && darkTheme -> dynamicDarkColorScheme(context)
-        shouldUseDynamicColor(dynamicColorEnabled, Build.VERSION.SDK_INT) -> dynamicLightColorScheme(context)
+        dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && darkTheme -> dynamicDarkColorScheme(context)
+        dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicLightColorScheme(context)
         darkTheme -> DarkColors
         else -> LightColors
     }
