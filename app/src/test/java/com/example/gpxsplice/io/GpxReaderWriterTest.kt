@@ -6,6 +6,7 @@ import com.example.gpxsplice.domain.TrackPoint
 import com.example.gpxsplice.domain.TrackSegment
 import com.example.gpxsplice.domain.orderedPoints
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Assert.fail
@@ -73,9 +74,37 @@ class GpxReaderWriterTest {
         assertEquals(1, reparsed.tracks.single().segments.last().points.size)
         assertEquals(3, reparsed.orderedPoints().size)
         assertEquals(10.0, reparsed.orderedPoints().first().elevationMeters!!, 0.001)
-        assertEquals("2026-04-26T08:00:00Z", reparsed.orderedPoints().first().time)
+        assertNull(reparsed.orderedPoints().first().time)
         assertEquals(20.5, reparsed.orderedPoints().last().elevationMeters!!, 0.001)
-        assertEquals("2026-04-26T08:10:00Z", reparsed.orderedPoints().last().time)
+        assertNull(reparsed.orderedPoints().last().time)
+    }
+
+    @Test
+    fun writesSanitizedGpxWithoutTimesWhilePreservingPoints() {
+        val firstPoint = TrackPoint(52.0, 5.0, elevationMeters = 10.0, time = "2026-04-26T08:00:00Z")
+        val secondPoint = TrackPoint(52.1, 5.1, elevationMeters = null, time = "2026-04-26T08:05:00Z")
+        val thirdPoint = TrackPoint(52.2, 5.2, elevationMeters = 20.5, time = null)
+        val document = GpxDocument(
+            name = "Sanitized",
+            tracks = listOf(
+                Track(
+                    name = "Ordered",
+                    segments = listOf(
+                        TrackSegment(listOf(firstPoint, secondPoint, thirdPoint)),
+                    ),
+                ),
+            ),
+        )
+
+        val xml = GpxWriter.write(document)
+        val reparsed = GpxReader.read(xml.byteInputStream())
+
+        assertTrue(xml.contains("xmlns=\"http://www.topografix.com/GPX/1/1\""))
+        assertFalse(xml.contains("<time>"))
+        assertEquals(listOf(52.0, 52.1, 52.2), reparsed.orderedPoints().map { it.latitude })
+        assertEquals(listOf(5.0, 5.1, 5.2), reparsed.orderedPoints().map { it.longitude })
+        assertEquals(listOf(10.0, null, 20.5), reparsed.orderedPoints().map { it.elevationMeters })
+        assertEquals(listOf(null, null, null), reparsed.orderedPoints().map { it.time })
     }
 
     @Test

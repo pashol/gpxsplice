@@ -19,12 +19,11 @@ object GpxWriter {
 
                 for (point in segment.points) {
                     xml.append("      <trkpt lat=\"${point.latitude}\" lon=\"${point.longitude}\"")
-                    if (point.elevationMeters == null && point.time == null) {
+                    if (point.elevationMeters == null) {
                         xml.appendLine(" />")
                     } else {
                         xml.append('>')
                         point.elevationMeters?.let { xml.append("<ele>$it</ele>") }
-                        point.time?.let { xml.append("<time>${it.escapeXml()}</time>") }
                         xml.appendLine("</trkpt>")
                     }
                 }

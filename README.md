@@ -1,98 +1,113 @@
 # GPX Splice
 
-Native Android GPX splitter inspired by GPXto GPX Split.
+GPX Splice is a native Android app for splitting and merging GPX tracks.
+
+Use it to pick GPX files from Android storage, split long tracks into stages, merge multiple tracks into one file, preview the result offline, and share clean GPX exports through the Android share sheet.
+
+[Download the latest APK](https://github.com/pashol/gpxsplice/releases/latest)
 
 ## Features
 
-- Pick a GPX file from Android storage.
-- Split tracks by distance, maximum points, or equal stages.
-- Pick multiple GPX files and merge them into one GPX file.
-- Reorder merge inputs with buttons or long-press drag before exporting.
+- Pick GPX files from Android storage.
+- Split tracks by distance, maximum point count, or equal stages.
+- Merge multiple GPX files into one GPX file.
+- Reorder merge inputs with buttons or long-press drag.
 - Preview split or merged tracks offline with colored line segments.
-- Share generated GPX files, a ZIP of split files, or one merged GPX file through Android share sheet.
-
-## Tech Stack
-
-- **Language:** Kotlin
-- **UI Framework:** Jetpack Compose with Material 3
-- **Architecture:** Single-module Android app
-- **GPX Parsing:** [`me.bvn13.sdk.android.gpx:GpxAndroidSdk`](https://github.com/bvn13/GpxAndroidSdk)
-- **Min SDK:** 26, **Target SDK:** 35
-
-## Project Structure
-
-```
-app/src/main/java/com/example/gpxsplice/
-├── MainActivity.kt          # Entry point, file picking and sharing
-├── domain/                  # GPX models plus splitting and merging logic
-│   ├── GpxModels.kt         # Data classes (GpxDocument, Track, TrackPoint, etc.)
-│   ├── GpxMerger.kt         # Core merging algorithm
-│   ├── GpxSplitter.kt       # Core splitting algorithm
-│   └── Distance.kt          # Haversine distance calculation
-├── io/                      # GPX reading, writing, and export
-│   ├── GpxReader.kt         # GPX file parsing
-│   ├── GpxWriter.kt         # GPX file serialization
-│   └── ExportFiles.kt       # ZIP and file export utilities
-├── ui/                      # Compose UI
-│   ├── GpxMergeModels.kt    # Merge workflow UI state models
-│   ├── GpxSplitApp.kt       # Main app UI scaffold and controls
-│   ├── TrackPreviewCanvas.kt # Canvas preview of split tracks
-│   └── theme/AppTheme.kt    # Material 3 theme
-```
-
-## Build
-
-```bash
-./gradlew :app:assembleDebug
-```
-
-> If Gradle cannot find the Android SDK, run with:
-> ```bash
-> ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:assembleDebug
-> ```
+- Share individual GPX files, a ZIP of split files, or one merged GPX file.
+- Export GPX files without timestamps, so shared files do not leak original timing data.
 
 ## Install
 
-Download the latest APK from the [GitHub releases page](https://github.com/pashol/gpxsplice/releases/latest), or build it locally with the command above.
+Download the latest APK from the [GitHub releases page](https://github.com/pashol/gpxsplice/releases/latest).
 
-Check that a device is connected and authorized:
-
-```bash
-/home/pascal/Android/Sdk/platform-tools/adb devices
-```
-
-Install the debug APK:
+To build and install a debug APK locally:
 
 ```bash
+ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:assembleDebug
 /home/pascal/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Test
+## Usage
+
+### Split A Track
+
+1. Open GPX Splice.
+2. Pick a GPX file.
+3. Choose a split mode.
+4. Preview the generated stages.
+5. Share the stages as individual GPX files or one ZIP archive.
+
+| Mode | Description |
+|------|-------------|
+| **Distance** | Split by a target distance in kilometers. |
+| **Max Points** | Split so no file exceeds a chosen number of track points. |
+| **Equal Stages** | Divide the track into a fixed number of roughly equal stages. |
+
+### Merge Tracks
+
+1. Pick two or more GPX files.
+2. Reorder the files if needed.
+3. Preview the merged track.
+4. Share one combined GPX file.
+
+## Development
+
+GPX Splice is a single-module Android project using Kotlin, Jetpack Compose, and Material 3.
+
+| Tool | Version |
+|------|---------|
+| Android Gradle Plugin | 8.7.3 |
+| Gradle wrapper | 8.10.2 |
+| Kotlin | 2.0.21 |
+| Java target | 17 |
+| Min SDK | 26 |
+| Target SDK | 35 |
+
+Build the debug APK:
 
 ```bash
-./gradlew :app:testDebugUnitTest
+ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:assembleDebug
 ```
 
-### Test Coverage
+Run JVM unit tests:
+
+```bash
+ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:testDebugUnitTest
+```
+
+Run one test class:
+
+```bash
+ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:testDebugUnitTest --tests com.example.gpxsplice.domain.DistanceTest
+```
+
+Run Android lint for the debug variant:
+
+```bash
+ANDROID_HOME=/home/pascal/Android/Sdk ./gradlew :app:lintDebug
+```
+
+## Project Structure
+
+```text
+app/src/main/java/com/example/gpxsplice/
+|-- MainActivity.kt           # Android entry point, file picking, sharing
+|-- domain/                   # GPX models plus split and merge logic
+|-- io/                       # GPX parsing, writing, ZIP and file export
+`-- ui/                       # Compose UI and Material 3 theme
+```
+
+## Test Coverage
 
 Unit tests cover:
+
 - Domain logic for splitting and merging (`DistanceTest`, `GpxSplitterTest`, `GpxMergerTest`)
 - GPX I/O (`GpxReaderWriterTest`, `ExportFilesTest`)
 - UI components and merge UI state (`TrackPreviewCanvasTest`, `GpxMergeModelsTest`, `GpxSplitLayoutTest`, `AppThemeTest`)
 - Activity formatting and helpers (`MainActivityTest`)
 
-## Splitting Modes
+## Notes
 
-| Mode | Description |
-|------|-------------|
-| **Distance** | Split by a target distance in kilometers. Each file covers approximately that distance. |
-| **Max Points** | Split so no file exceeds a given number of track points. |
-| **Equal Stages** | Divide the track into a fixed number of roughly equal segments. |
-
-## Sharing
-
-After splitting, you can share the results as:
-- **Individual GPX files** — each stage as a separate `.gpx` file
-- **ZIP archive** — all stages packed into a single `.zip` file
-
-After merging, you can share one combined `.gpx` file. Exported files are shared via the Android share sheet using `FileProvider`.
+- GPX parsing accepts namespaced and non-namespaced GPX elements.
+- Exported files are shared through Android `FileProvider`.
+- Exported GPX files intentionally omit `<time>` values.

@@ -64,4 +64,12 @@ class GpxSplitLayoutTest {
         assertNull(mergeReorderHint(fileCount = 1))
         assertEquals("Long-press and drag cards to rearrange files.", mergeReorderHint(fileCount = 2))
     }
+
+    @Test
+    fun mergeTimestampWarningExplainsExportSanitation() {
+        assertEquals(
+            "Merged exports remove all timestamps. Do not use them as proof for ultra endurance races or other events that require original timing data.",
+            mergeTimestampWarning(),
+        )
+    }
 }

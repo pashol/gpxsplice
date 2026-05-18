@@ -403,6 +403,17 @@ private fun MergeWorkflow(
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Text(
+            text = mergeTimestampWarning(),
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
     Button(enabled = !isImportingMergeFiles, onClick = onPickMergeFiles) { Text("Choose GPX files") }
     if (isImportingMergeFiles) {
         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -590,6 +601,9 @@ internal fun cancelAndClearMergeJob(job: Job?): Job? {
 
 internal fun mergeReorderHint(fileCount: Int): String? =
     if (fileCount > 1) "Long-press and drag cards to rearrange files." else null
+
+internal fun mergeTimestampWarning(): String =
+    "Merged exports remove all timestamps. Do not use them as proof for ultra endurance races or other events that require original timing data."
 
 private data class MergeItemPosition(
     val top: Float,
