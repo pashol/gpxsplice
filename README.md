@@ -14,7 +14,7 @@ Use it to pick GPX files from Android storage, split long tracks into stages, me
 - Reorder merge inputs with buttons or long-press drag.
 - Preview split or merged tracks offline with colored line segments.
 - Share individual GPX files, a ZIP of split files, or one merged GPX file.
-- Export GPX files without timestamps, so shared files do not leak original timing data.
+- Optionally remove GPX point timestamps from split or merged exports before sharing.
 
 ## Install
 
@@ -110,4 +110,4 @@ Unit tests cover:
 
 - GPX parsing accepts namespaced and non-namespaced GPX elements.
 - Exported files are shared through Android `FileProvider`.
-- Exported GPX files intentionally omit `<time>` values.
+- Exported GPX files preserve point timestamps by default. Enable the sanitize option to remove `<time>` values while keeping point order, coordinates, and elevation.

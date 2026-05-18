@@ -151,10 +151,10 @@ class MainActivity : ComponentActivity() {
                             picker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*"))
                         }
                     },
-                    onShareFiles = { results ->
+                    onShareFiles = { results, sanitize ->
                         lifecycleScope.launch {
                             runCatchingPreservingCancellation {
-                                shareFiles(ExportBuilder.gpxFiles(results, inputFileName))
+                                shareFiles(ExportBuilder.gpxFiles(results, inputFileName, sanitize = sanitize))
                             }.onSuccess {
                                 errorMessage = null
                             }.onFailure {
@@ -162,10 +162,10 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
-                    onShareZip = { results ->
+                    onShareZip = { results, sanitize ->
                         lifecycleScope.launch {
                             runCatchingPreservingCancellation {
-                                shareZip(results, inputFileName)
+                                shareZip(results, inputFileName, sanitize)
                             }.onSuccess {
                                 errorMessage = null
                             }.onFailure {
@@ -182,10 +182,10 @@ class MainActivity : ComponentActivity() {
                             mergePicker.launch(arrayOf("application/gpx+xml", "application/xml", "text/xml", "*/*"))
                         }
                     },
-                    onShareMergedFile = { mergedDocument, firstInputFileName ->
+                    onShareMergedFile = { mergedDocument, firstInputFileName, sanitize ->
                         lifecycleScope.launch {
                             runCatchingPreservingCancellation {
-                                shareMergedFile(mergedDocument, firstInputFileName)
+                                shareMergedFile(mergedDocument, firstInputFileName, sanitize)
                             }.onSuccess {
                                 errorMessage = null
                             }.onFailure {
@@ -215,12 +215,12 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(intent, "Share GPX files"))
     }
 
-    private suspend fun shareZip(results: List<SplitResult>, inputFileName: String?) {
+    private suspend fun shareZip(results: List<SplitResult>, inputFileName: String?, sanitize: Boolean) {
         val uri = withContext(Dispatchers.IO) {
             val exportDir = createExportDir()
             val zipFile = writeExportFile(
                 exportDir,
-                ExportFile(exportZipFileName(inputFileName), ZipExporter.zipBytes(ExportBuilder.gpxFiles(results, inputFileName))),
+                ExportFile(exportZipFileName(inputFileName), ZipExporter.zipBytes(ExportBuilder.gpxFiles(results, inputFileName, sanitize = sanitize))),
             )
             FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", zipFile)
         }
@@ -233,10 +233,10 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(intent, "Share ZIP"))
     }
 
-    private suspend fun shareMergedFile(document: GpxDocument, firstInputFileName: String?) {
+    private suspend fun shareMergedFile(document: GpxDocument, firstInputFileName: String?, sanitize: Boolean) {
         val uri = withContext(Dispatchers.IO) {
             val exportDir = createExportDir()
-            val output = writeExportFile(exportDir, ExportBuilder.mergedGpxFile(document, firstInputFileName))
+            val output = writeExportFile(exportDir, ExportBuilder.mergedGpxFile(document, firstInputFileName, sanitize = sanitize))
             FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", output)
         }
         val intent = Intent(Intent.ACTION_SEND).apply {

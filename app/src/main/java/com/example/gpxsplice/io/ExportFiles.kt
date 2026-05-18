@@ -21,7 +21,11 @@ class ExportFile(
 }
 
 object ExportBuilder {
-    fun gpxFiles(results: List<SplitResult>, inputFileName: String? = null): List<ExportFile> = results.map { result ->
+    fun gpxFiles(
+        results: List<SplitResult>,
+        inputFileName: String? = null,
+        sanitize: Boolean = false,
+    ): List<ExportFile> = results.map { result ->
         val splitIndex = result.index.toString().padStart(3, '0')
         ExportFile(
             fileName = exportFileName(
@@ -30,14 +34,14 @@ object ExportBuilder {
                 defaultName = "split-$splitIndex.gpx",
                 outputExtension = ".gpx",
             ),
-            bytes = GpxWriter.write(result.document).toByteArray(Charsets.UTF_8),
+            bytes = GpxWriter.write(result.document, sanitize = sanitize).toByteArray(Charsets.UTF_8),
         )
     }
 
-    fun mergedGpxFile(document: GpxDocument, firstInputFileName: String?): ExportFile =
+    fun mergedGpxFile(document: GpxDocument, firstInputFileName: String?, sanitize: Boolean = false): ExportFile =
         ExportFile(
             fileName = mergedGpxFileName(firstInputFileName),
-            bytes = GpxWriter.write(document).toByteArray(Charsets.UTF_8),
+            bytes = GpxWriter.write(document, sanitize = sanitize).toByteArray(Charsets.UTF_8),
         )
 }
 

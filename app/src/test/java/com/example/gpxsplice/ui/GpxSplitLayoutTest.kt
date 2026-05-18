@@ -66,10 +66,10 @@ class GpxSplitLayoutTest {
     }
 
     @Test
-    fun mergeTimestampWarningExplainsExportSanitation() {
+    fun sanitizeExportHelpTextExplainsOptionalTimestampRemoval() {
         assertEquals(
-            "Merged exports remove all timestamps. Do not use them as proof for ultra endurance races or other events that require original timing data.",
-            mergeTimestampWarning(),
+            "Optional: remove time tags before sharing. Point order, coordinates, and elevation stay unchanged.",
+            sanitizeExportHelpText(),
         )
     }
 }

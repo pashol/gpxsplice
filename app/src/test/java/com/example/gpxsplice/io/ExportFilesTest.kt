@@ -48,6 +48,35 @@ class ExportFilesTest {
     }
 
     @Test
+    fun gpxFilesPreserveTimesByDefault() {
+        val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 1)))
+        val xml = files.single().bytes.toString(Charsets.UTF_8)
+
+        assertTrue(xml.contains("<time>2024-01-01T00:00:00Z</time>"))
+    }
+
+    @Test
+    fun gpxFilesCanRemoveTimesForSanitizedExport() {
+        val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 1)), sanitize = true)
+        val xml = files.single().bytes.toString(Charsets.UTF_8)
+
+        assertFalse(xml.contains("<time>"))
+        assertTrue(xml.contains("lat=\"11.0\""))
+        assertTrue(xml.contains("lon=\"21.0\""))
+        assertTrue(xml.contains("<ele>101.0</ele>"))
+    }
+
+    @Test
+    fun zipBytesUseSanitizedSplitFilesWhenRequested() {
+        val files = ExportBuilder.gpxFiles(results = listOf(splitResult(index = 1)), sanitize = true)
+        val entries = unzipEntries(ZipExporter.zipBytes(files))
+        val xml = entries.getValue("split-001.gpx").toString(Charsets.UTF_8)
+
+        assertFalse(xml.contains("<time>"))
+        assertTrue(xml.contains("lat=\"11.0\""))
+    }
+
+    @Test
     fun zipFileNameUsesInputFileNameWithSuffix() {
         assertEquals("ride-splits.zip", exportZipFileName("ride.gpx"))
     }
@@ -141,6 +170,33 @@ class ExportFilesTest {
 
         assertEquals("ride-day-1-merged.gpx", file.fileName)
         assertEquals(GpxWriter.write(document).toByteArray(Charsets.UTF_8).toList(), file.bytes.toList())
+    }
+
+    @Test
+    fun mergedGpxFileCanRemoveTimesForSanitizedExport() {
+        val document = GpxDocument(
+            name = "Merged GPX",
+            tracks = listOf(
+                Track(
+                    "merged-track",
+                    listOf(
+                        TrackSegment(
+                            listOf(
+                                TrackPoint(52.0, 5.0, elevationMeters = 12.0, time = "2026-04-26T08:00:00Z"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val file = ExportBuilder.mergedGpxFile(document, firstInputFileName = "ride-day-1.gpx", sanitize = true)
+        val xml = file.bytes.toString(Charsets.UTF_8)
+
+        assertEquals("ride-day-1-merged.gpx", file.fileName)
+        assertFalse(xml.contains("<time>"))
+        assertTrue(xml.contains("lat=\"52.0\""))
+        assertTrue(xml.contains("<ele>12.0</ele>"))
     }
 
     @Test

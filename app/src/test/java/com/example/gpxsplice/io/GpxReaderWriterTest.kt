@@ -67,6 +67,7 @@ class GpxReaderWriterTest {
 
         assertTrue(xml.contains("Export &amp; Verify &lt;doc&gt;"))
         assertTrue(xml.contains("Part &amp; 1 &lt;north&gt;"))
+        assertTrue(xml.contains("<time>2026-04-26T08:00:00Z</time>"))
         assertEquals("Export & Verify <doc>", reparsed.name)
         assertEquals("Part & 1 <north>", reparsed.tracks.single().name)
         assertEquals(2, reparsed.tracks.single().segments.size)
@@ -74,9 +75,9 @@ class GpxReaderWriterTest {
         assertEquals(1, reparsed.tracks.single().segments.last().points.size)
         assertEquals(3, reparsed.orderedPoints().size)
         assertEquals(10.0, reparsed.orderedPoints().first().elevationMeters!!, 0.001)
-        assertNull(reparsed.orderedPoints().first().time)
+        assertEquals("2026-04-26T08:00:00Z", reparsed.orderedPoints().first().time)
         assertEquals(20.5, reparsed.orderedPoints().last().elevationMeters!!, 0.001)
-        assertNull(reparsed.orderedPoints().last().time)
+        assertEquals("2026-04-26T08:10:00Z", reparsed.orderedPoints().last().time)
     }
 
     @Test
@@ -96,7 +97,7 @@ class GpxReaderWriterTest {
             ),
         )
 
-        val xml = GpxWriter.write(document)
+        val xml = GpxWriter.write(document, sanitize = true)
         val reparsed = GpxReader.read(xml.byteInputStream())
 
         assertTrue(xml.contains("xmlns=\"http://www.topografix.com/GPX/1/1\""))
